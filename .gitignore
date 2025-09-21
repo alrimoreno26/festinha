@@ -1,6 +1,34 @@
+# Dependencies
 node_modules/
+
+# Build
+.next/
+out/
 dist/
-.vercel/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local env files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Mac / Windows / Linux
 .DS_Store
-*.log
-package-lock.json
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# Vercel
+.vercel/
+
+# Coverage
+coverage/

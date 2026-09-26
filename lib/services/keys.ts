@@ -1,0 +1,19 @@
+// Chaves do React Query centralizadas.
+export const qk = {
+  session: ['session'] as const,
+  publicPackages: ['packages', 'public'] as const,
+  publicPackage: (slug: string) => ['packages', 'public', slug] as const,
+  adminPackages: ['admin', 'packages'] as const,
+  adminPackage: (id: string) => ['admin', 'packages', id] as const,
+  folder: (path: string) => ['admin', 'files', 'folder', path] as const,
+  allFiles: ['admin', 'files', 'all'] as const,
+  orders: (filters: object) => ['admin', 'orders', filters] as const,
+  order: (id: string) => ['admin', 'orders', 'detail', id] as const,
+  customers: (search: string) => ['admin', 'customers', search] as const,
+  customer: (id: string) => ['admin', 'customers', 'detail', id] as const,
+  dashboard: (days: number) => ['admin', 'dashboard', days] as const,
+  publicOrder: (id: string) => ['checkout', 'order', id] as const,
+  myKits: ['me', 'kits'] as const,
+  myKit: (packageId: string) => ['me', 'kits', packageId] as const,
+  myOrders: ['me', 'orders'] as const,
+}

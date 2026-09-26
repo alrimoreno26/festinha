@@ -1,5 +1,5 @@
-import Navbar from '../components/Navbar'
-import { Hero, Benefits, Services, Gallery, Contact } from '../components/Sections'
+import { FeaturedKits } from '@/components/landing/FeaturedKits'
+import { Benefits, Contact, Gallery, Hero, Services } from '@/components/landing/Sections'
 
 const gallery = [
   { src: '/galeria/pacote-completo.png', alt: 'Pacote completo' },
@@ -9,16 +9,15 @@ const gallery = [
   { src: '/galeria/cartaz-papelaria-2.png', alt: 'Cartaz 2' },
 ]
 
-export default function Page(){
+export default function Page() {
   return (
-    <div className="min-h-screen bg-[#FFF8F1] text-[#2b2b2b] font-sans">
-      <Navbar />
+    <>
       <Hero />
       <Benefits />
+      <FeaturedKits />
       <Services />
       <Gallery items={gallery} />
       <Contact />
-      <footer className="py-10 text-center text-sm text-gray-500">© {new Date().getFullYear()} Festinhas Criativa Papelaria · Feito com amor</footer>
-    </div>
+    </>
   )
 }

@@ -1,7 +1,7 @@
 'use client'
 import { motion } from 'framer-motion'
 import { Star, Sparkles, Phone, Mail, MapPin, Instagram, MessageCircle } from 'lucide-react'
-import { palette } from './Palette'
+import { palette } from '@/lib/palette'
 
 const benefits = [
   { title: 'Design exclusivo', desc: 'Cores, tipografias e personagens criados para você.' },
@@ -27,7 +27,7 @@ export function Hero(){
             Transformamos sua festa com kits personalizados: convites, toppers, bandeirinhas, adesivos e embalagens. Tudo feito com carinho no seu estilo.
           </p>
           <div className="flex flex-wrap gap-3">
-            <a href="#servicos" className="px-5 py-3 rounded-2xl shadow-md font-medium" style={{background: palette.teal, color: 'white'}}>Ver serviços</a>
+            <a href="/pacotes" className="px-5 py-3 rounded-2xl shadow-md font-medium" style={{background: palette.teal, color: 'white'}}>Ver kits digitais</a>
             <a href="#contato" className="px-5 py-3 rounded-2xl font-medium border" style={{borderColor: palette.coral, color: palette.coral}}>Pedir orçamento</a>
           </div>
           <div className="mt-6 flex items-center gap-2 text-sm text-gray-600"><Sparkles size={18}/><span>Feito com amor em cada detalhe</span></div>
@@ -77,7 +77,9 @@ export function Services(){
   )
 }
 
-export function Gallery({items=[]}){
+export type GalleryItem = { src: string; alt?: string }
+
+export function Gallery({ items = [] }: { items?: GalleryItem[] }){
   return (
     <section id="galeria" className="py-16 md:py-24">
       <div className="max-w-6xl mx-auto px-4">

@@ -6,7 +6,7 @@
 import { Button, ErrorState, PageLoader } from '@/components/ui'
 import { cn } from '@/lib/cn'
 import { formatBRL } from '@/lib/format'
-import { getDevSettings, subscribeDevSettings } from '@/lib/mock/dev-settings'
+import { getDevSettings, subscribeDevSettings } from '@/lib/dev/settings'
 import { checkoutService, errorMessage, qk } from '@/lib/services'
 import type { PaymentMethod } from '@/lib/types'
 import { useMutation, useQuery } from '@tanstack/react-query'

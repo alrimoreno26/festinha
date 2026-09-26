@@ -5,3 +5,6 @@ export const POST = route<{ id: string }>(async ({ actor, params }) => {
   await customers.restoreAccess(db, actor, params.id)
   return null
 })
+
+// Depende da sessão/banco em cada chamada: nunca pré-renderizar nem cachear.
+export const dynamic = 'force-dynamic'

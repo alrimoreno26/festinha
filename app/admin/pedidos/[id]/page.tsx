@@ -3,7 +3,7 @@
 import { Button, ButtonLink, Card, ConfirmDialog, EntitlementBadge, OrderStatusBadge, PageHeader, PAYMENT_METHOD, QueryState, useToast } from '@/components/ui'
 import { expiryText } from '@/lib/entitlements'
 import { formatBRL, formatDateTime } from '@/lib/format'
-import { devToolsEnabled } from '@/lib/mock/dev-settings'
+import { devToolsEnabled } from '@/lib/dev/settings'
 import { errorMessage, ordersService, qk } from '@/lib/services'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { ChevronLeft, FlaskConical, MessageCircle } from 'lucide-react'

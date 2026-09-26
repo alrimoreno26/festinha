@@ -1,6 +1,6 @@
 // Carga dos dados de exemplo. Usada por `npm run db:seed`, pelo "Restaurar dados" da DevToolbar e pelos testes.
 
-import { createSeed } from '@/lib/mock/seed'
+import { createSeed } from './seed-data'
 import { sql } from 'drizzle-orm'
 import { hashPassword } from './auth/password'
 import * as t from './db/schema'
@@ -36,7 +36,7 @@ export async function seedDatabase(db: Db, { kind = 'seed', hash = hashPassword 
     await tx.insert(t.packageFiles).values(seed.packages.flatMap((p) => p.fileIds.map((fileId, position) => ({ packageId: p.id, fileId, position }))))
     await tx
       .insert(t.orders)
-      .values(seed.orders.map(({ autoApproveAt: _a, createdAt, paidAt, ...o }) => ({ ...o, createdAt: date(createdAt), paidAt: dateOrNull(paidAt) })))
+      .values(seed.orders.map(({ createdAt, paidAt, ...o }) => ({ ...o, createdAt: date(createdAt), paidAt: dateOrNull(paidAt) })))
     await tx
       .insert(t.entitlements)
       .values(seed.entitlements.map((e) => ({ ...e, createdAt: date(e.createdAt), expiresAt: dateOrNull(e.expiresAt), revokedAt: dateOrNull(e.revokedAt) })))

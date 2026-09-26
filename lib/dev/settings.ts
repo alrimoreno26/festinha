@@ -1,7 +1,9 @@
-// Configurações da DevToolbar: controlam como o mock se comporta para validar cenários.
+// Configurações da DevToolbar (ficam no navegador). Controlam o simulador de pagamento
+// e permitem simular rede lenta ou fora do ar para validar os estados das telas.
 
 export type PaymentOutcome = 'approved' | 'pending' | 'rejected'
-export type Latency = 'none' | 'normal' | 'slow'
+/** "real" = sem atraso extra; "slow" = soma 1,5–3 s a cada chamada. */
+export type Latency = 'real' | 'slow'
 
 export interface DevSettings {
   paymentOutcome: PaymentOutcome
@@ -11,12 +13,12 @@ export interface DevSettings {
   networkError: boolean
 }
 
-const KEY = 'festinhas:dev-settings:v1'
+const KEY = 'festinhas:dev-settings:v2'
 
 export const defaultDevSettings: DevSettings = {
   paymentOutcome: 'approved',
   pixAutoConfirmSeconds: 8,
-  latency: 'normal',
+  latency: 'real',
   networkError: false,
 }
 
@@ -49,4 +51,6 @@ export function subscribeDevSettings(listener: Listener) {
   return () => listeners.delete(listener)
 }
 
-export const devToolsEnabled = process.env.NEXT_PUBLIC_DEVTOOLS !== 'false'
+/** Mesma regra da API (lib/server/http.ts): ligado em dev; em produção só se pedido explicitamente. */
+export const devToolsEnabled =
+  process.env.NODE_ENV !== 'production' ? process.env.NEXT_PUBLIC_DEVTOOLS !== 'false' : process.env.NEXT_PUBLIC_DEVTOOLS === 'true'

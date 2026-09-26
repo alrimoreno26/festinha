@@ -11,3 +11,6 @@ export const POST = route(async ({ req, actor, sessionToken }) => {
   await auth.changePassword(db, user, sessionToken!, currentPassword, newPassword)
   return { user: { ...user, mustChangePassword: false } }
 })
+
+// Depende da sessão/banco em cada chamada: nunca pré-renderizar nem cachear.
+export const dynamic = 'force-dynamic'

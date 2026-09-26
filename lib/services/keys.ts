@@ -16,4 +16,6 @@ export const qk = {
   myKits: ['me', 'kits'] as const,
   myKit: (packageId: string) => ['me', 'kits', packageId] as const,
   myOrders: ['me', 'orders'] as const,
+  devOutbox: ['dev', 'outbox'] as const,
+  devCounts: ['dev', 'counts'] as const,
 }

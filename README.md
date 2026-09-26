@@ -28,35 +28,35 @@ npm test              # regras de negócio (lib/server/domain) contra um Postgre
 ```
 Os testes aplicam as migrações de `drizzle/` e usam os dados do seed — não tocam na Neon.
 
-## Fase atual: frontend com dados simulados
-Toda a lógica roda no navegador sobre um banco simulado (`localStorage`). Nenhuma integração
-(Postgres, R2, Mercado Pago, email) está ligada ainda.
+## Modo de simulação (até as fases 3–5)
+Dados, login e regras já são reais (Neon). Continuam simulados: pagamento (simulador no lugar do
+Mercado Pago), conteúdo dos arquivos (R2) e envio de emails (ficam na tabela `email_outbox`).
 
-- **DevToolbar** (botão "Dev" no canto inferior esquerdo): trocar de sessão, forçar o resultado
-  do pagamento, simular rede lenta/erro, restaurar ou esvaziar os dados e ver os emails "enviados".
+- **DevToolbar** (botão "Dev"): resultado do próximo pagamento, rede lenta/erro, entrar como conta
+  de teste sem senha, restaurar/esvaziar o banco de desenvolvimento e ver os emails "enviados".
 - **/dev**: vitrine dos componentes base.
-- Contas de teste: ver `SEED_ACCOUNTS` em `lib/mock/seed.ts`.
-- Para esconder a DevToolbar: `NEXT_PUBLIC_DEVTOOLS=false`.
+- Contas de teste: `SEED_ACCOUNTS` em `lib/server/seed-data.ts`.
+- Ligado por padrão em desenvolvimento. Em produção só com `NEXT_PUBLIC_DEVTOOLS=true` e `DEV_TOOLS=true`.
 
 ## Estrutura
 ```
 app/
-  (site)/          landing
+  (site)/          landing, catálogo e checkout
   conta/           área do cliente (login público, resto protegido)
   admin/           backoffice
-  dev/             vitrine de componentes
-components/
-  ui/              componentes base (Button, Field, Modal, Table, Toast…)
-  landing/         seções da landing
-  dev/             DevToolbar
+  api/             rotas HTTP (auth, me, admin, dev)
+components/        ui/ (componentes base), landing/, admin/, conta/, dev/ (DevToolbar)
 lib/
   types.ts         tipos de domínio
-  services/        ÚNICO acesso a dados da UI (hoje usa o mock; depois, a API)
-  mock/            banco simulado, seed e regras de liberação de acesso
+  contracts.ts     formatos da API e validações compartilhadas
+  services/        ÚNICO acesso a dados da UI (chama app/api)
+  server/          só servidor: banco (db/), regras de negócio (domain/), sessão e HTTP
+  dev/             configurações da DevToolbar
+middleware.ts      redireciona /admin e /conta para o login sem cookie de sessão
 ```
 
-A UI nunca importa de `lib/mock` — só de `lib/services`. Nas próximas fases os serviços passam a
-chamar a API mantendo as mesmas assinaturas.
+A UI nunca importa de `lib/server` — só de `lib/services`. As permissões são verificadas no
+servidor a cada chamada.
 
 ## Deploy na Vercel
 - Faça push para GitHub (repo novo)

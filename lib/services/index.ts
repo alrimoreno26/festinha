@@ -1,6 +1,5 @@
-// Ponto único de acesso a dados para a UI.
-// Na fase 1 os serviços usam o mock (lib/mock); nas próximas fases passam a chamar a API
-// mantendo as mesmas assinaturas.
+// Ponto único de acesso a dados para a UI: cada serviço chama a API (app/api) e
+// devolve os erros como ServiceError.
 
 export { accountService } from './account'
 export { authService } from './auth'
@@ -11,4 +10,5 @@ export { errorMessage, ServiceError } from './errors'
 export { filesService } from './files'
 export { ordersService } from './orders'
 export { packagesService } from './packages'
+export { devService } from './dev'
 export { qk } from './keys'

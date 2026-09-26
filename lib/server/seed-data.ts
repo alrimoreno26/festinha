@@ -1,10 +1,24 @@
-// Dados iniciais do mock. Datas são relativas ao momento do seed para os cenários
-// (acesso vencendo, vencido, etc.) sempre fazerem sentido.
+// Dados de exemplo (npm run db:seed, "Restaurar dados" da DevToolbar e testes).
+// Datas são relativas ao momento do seed para os cenários (acesso vencendo, vencido, etc.) sempre fazerem sentido.
 
-import type { Entitlement, FileItem, Order, Package } from '@/lib/types'
-import type { MockDB, MockUser } from './store'
+import type { Download, Entitlement, FileItem, Order, Package, User } from '@/lib/types'
 
-/** Contas de teste do mock (usadas também nos atalhos de login da DevToolbar). */
+export interface SeedUser extends User {
+  /** Senha em texto só aqui; no banco vai o hash. */
+  password: string
+}
+
+export interface SeedData {
+  users: SeedUser[]
+  files: FileItem[]
+  folders: string[]
+  packages: Package[]
+  orders: Order[]
+  entitlements: Entitlement[]
+  downloads: Download[]
+}
+
+/** Contas de teste (usadas também nos atalhos de login da DevToolbar). */
 export const SEED_ACCOUNTS = {
   admin: { email: 'admin@festinhas.test', password: 'admin123' },
   maria: { email: 'maria@festinhas.test', password: 'cliente123' },
@@ -13,12 +27,12 @@ export const SEED_ACCOUNTS = {
 
 const DAY = 24 * 60 * 60 * 1000
 
-export function createSeed(): MockDB {
+export function createSeed(): SeedData {
   const now = Date.now()
   const ago = (days: number) => new Date(now - days * DAY).toISOString()
   const ahead = (days: number) => new Date(now + days * DAY).toISOString()
 
-  const users: MockUser[] = [
+  const users: SeedUser[] = [
     { id: 'usr_admin', email: SEED_ACCOUNTS.admin.email, password: SEED_ACCOUNTS.admin.password, name: 'Festinhas Admin', phone: null, role: 'admin', mustChangePassword: false, createdAt: ago(120) },
     { id: 'usr_maria', email: SEED_ACCOUNTS.maria.email, password: SEED_ACCOUNTS.maria.password, name: 'Maria Souza', phone: '(48) 99999-1111', role: 'customer', mustChangePassword: false, createdAt: ago(60) },
     { id: 'usr_ana', email: SEED_ACCOUNTS.ana.email, password: SEED_ACCOUNTS.ana.password, name: 'Ana Lima', phone: '(48) 99999-2222', role: 'customer', mustChangePassword: true, createdAt: ago(1) },
@@ -149,7 +163,5 @@ export function createSeed(): MockDB {
       { id: 'dl_2', userId: 'usr_maria', fileId: 'fil_saf2', createdAt: ago(57) },
       { id: 'dl_3', userId: 'usr_carla', fileId: 'fil_fut1', createdAt: ago(13) },
     ],
-    outbox: [],
-    passwordResets: [],
   }
 }

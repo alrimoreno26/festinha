@@ -9,6 +9,8 @@ export function useSession() {
     session: query.data ?? null,
     user: query.data?.user ?? null,
     isLoading: query.isPending,
+    /** Falha ao consultar (rede/servidor) — diferente de "não está logado". */
+    error: query.isError && query.data === undefined ? query.error : null,
     refetch: query.refetch,
   }
 }

@@ -20,7 +20,7 @@ import {
 import { formatBytes, formatDate } from '@/lib/format'
 import { errorMessage, filesService, qk } from '@/lib/services'
 import { MAX_UPLOAD_BYTES, type FolderListing } from '@/lib/services/files'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, Folder, FolderPlus, Home, Pencil, RotateCcw, Trash2, Upload, X } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -70,6 +70,7 @@ function Explorer() {
   const path = useSearchParams().get('pasta') ?? ''
   const router = useRouter()
   const toast = useToast()
+  const queryClient = useQueryClient()
   const query = useQuery({ queryKey: qk.folder(path), queryFn: () => filesService.listFolder(path) })
 
   const [showUpload, setShowUpload] = useState(false)
@@ -86,6 +87,8 @@ function Explorer() {
     try {
       await filesService.upload(item.file, item.folder, (progress) => patch(item.id, { progress }))
       patch(item.id, { status: 'done', progress: 100 })
+      // O upload não passa por useMutation: avisa as listas (pasta atual, seletor de arquivos).
+      queryClient.invalidateQueries({ queryKey: ['admin', 'files'] })
     } catch (err) {
       patch(item.id, { status: 'error', error: errorMessage(err) })
     }

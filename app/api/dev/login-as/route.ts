@@ -16,3 +16,6 @@ export const POST = route(async ({ req, sessionToken }) => {
   setSessionCookie(token, expiresAt)
   return { user }
 })
+
+// Depende da sessão/banco em cada chamada: nunca pré-renderizar nem cachear.
+export const dynamic = 'force-dynamic'

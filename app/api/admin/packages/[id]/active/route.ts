@@ -5,3 +5,6 @@ import { z } from 'zod'
 export const PATCH = route<{ id: string }>(async ({ req, actor, params }) =>
   packages.setActive(db, actor, params.id, (await body(req, z.object({ active: z.boolean() }))).active),
 )
+
+// Depende da sessão/banco em cada chamada: nunca pré-renderizar nem cachear.
+export const dynamic = 'force-dynamic'

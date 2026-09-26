@@ -24,7 +24,14 @@ export interface ApiErrorBody {
   error: { code: ServiceErrorCode; message: string; details?: Record<string, string> }
 }
 
+/** Erros de controle do próprio Next (redirect, notFound, uso dinâmico no build) precisam seguir adiante. */
+function isNextInternal(err: unknown) {
+  const digest = (err as { digest?: unknown } | null)?.digest
+  return typeof digest === 'string' && (digest.startsWith('NEXT_') || digest === 'DYNAMIC_SERVER_USAGE')
+}
+
 function errorResponse(err: unknown) {
+  if (isNextInternal(err)) throw err
   if (err instanceof ServiceError) {
     const body: ApiErrorBody = { error: { code: err.code, message: err.message, details: err.details } }
     return NextResponse.json(body, { status: STATUS[err.code] })

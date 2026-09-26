@@ -11,3 +11,6 @@ const uploadSchema = z.object({ folder: z.string().max(500), filename: z.string(
 
 /** Registra um arquivo enviado (fase 3: depois do PUT direto no R2). */
 export const POST = route(async ({ req, actor }) => files.registerUpload(db, actor, await body(req, uploadSchema)))
+
+// Depende da sessão/banco em cada chamada: nunca pré-renderizar nem cachear.
+export const dynamic = 'force-dynamic'

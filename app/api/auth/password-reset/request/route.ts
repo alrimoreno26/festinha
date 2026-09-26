@@ -8,3 +8,6 @@ export const POST = route(async ({ req }) => {
   await auth.requestPasswordReset(db, (await body(req, schema)).email)
   return null
 })
+
+// Depende da sessão/banco em cada chamada: nunca pré-renderizar nem cachear.
+export const dynamic = 'force-dynamic'

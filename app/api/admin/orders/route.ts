@@ -11,3 +11,6 @@ export const GET = route(({ req, actor }) => {
   }
   return orders.list(db, actor, filters)
 })
+
+// Depende da sessão/banco em cada chamada: nunca pré-renderizar nem cachear.
+export const dynamic = 'force-dynamic'

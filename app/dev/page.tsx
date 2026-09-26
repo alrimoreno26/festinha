@@ -34,7 +34,7 @@ import {
   useToast,
 } from '@/components/ui'
 import { formatBRL, formatBytes } from '@/lib/format'
-import { devToolsEnabled } from '@/lib/mock/dev-settings'
+import { devToolsEnabled } from '@/lib/dev/settings'
 import { ServiceError } from '@/lib/services'
 import type { EntitlementStatus, OrderStatus } from '@/lib/types'
 import { Package } from 'lucide-react'

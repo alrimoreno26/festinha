@@ -7,3 +7,6 @@ export const GET = route(({ req, actor }) => customers.list(db, actor, req.nextU
 const schema = z.object({ name: z.string().max(200), email: z.string().max(320), phone: z.string().max(40).optional() })
 
 export const POST = route(async ({ req, actor }) => customers.create(db, actor, await body(req, schema)))
+
+// Depende da sessão/banco em cada chamada: nunca pré-renderizar nem cachear.
+export const dynamic = 'force-dynamic'

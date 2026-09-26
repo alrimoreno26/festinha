@@ -13,3 +13,6 @@ export const POST = route<{ fileId: string }>(async ({ actor, params }) => {
     filename: `${file.filename}.demo.txt`,
   }
 })
+
+// Depende da sessão/banco em cada chamada: nunca pré-renderizar nem cachear.
+export const dynamic = 'force-dynamic'

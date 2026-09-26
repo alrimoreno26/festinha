@@ -22,7 +22,7 @@ async function main() {
     union all select 'entitlements', count(*)::int from entitlements
   `)
   console.table(counts.rows)
-  console.log('Seed concluído. Contas de teste: ver SEED_ACCOUNTS em lib/mock/seed.ts')
+  console.log('Seed concluído. Contas de teste: ver SEED_ACCOUNTS em lib/server/seed-data.ts')
 }
 
 main()

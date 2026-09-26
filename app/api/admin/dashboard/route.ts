@@ -5,3 +5,6 @@ export const GET = route(({ req, actor }) => {
   const days = Number(req.nextUrl.searchParams.get('dias'))
   return dashboard.stats(db, actor, [7, 30, 90].includes(days) ? days : 30)
 })
+
+// Depende da sessão/banco em cada chamada: nunca pré-renderizar nem cachear.
+export const dynamic = 'force-dynamic'

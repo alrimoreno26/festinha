@@ -11,3 +11,6 @@ export const DELETE = route(async () => {
   await dev.clearOutbox(db)
   return null
 })
+
+// Depende da sessão/banco em cada chamada: nunca pré-renderizar nem cachear.
+export const dynamic = 'force-dynamic'

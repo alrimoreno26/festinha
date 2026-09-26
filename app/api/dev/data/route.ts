@@ -14,3 +14,6 @@ export const POST = route(async ({ req }) => {
   await dev.resetData(db, kind)
   return null
 })
+
+// Depende da sessão/banco em cada chamada: nunca pré-renderizar nem cachear.
+export const dynamic = 'force-dynamic'

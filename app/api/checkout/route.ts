@@ -6,3 +6,6 @@ import { z } from 'zod'
 const schema = z.object({ packageSlug: z.string(), name: z.string(), email: z.string(), phone: z.string() })
 
 export const POST = route(async ({ req }) => checkout.createOrder(db, await body(req, schema)))
+
+// Depende da sessão/banco em cada chamada: nunca pré-renderizar nem cachear.
+export const dynamic = 'force-dynamic'

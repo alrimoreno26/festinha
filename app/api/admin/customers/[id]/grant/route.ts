@@ -9,3 +9,6 @@ export const POST = route<{ id: string }>(async ({ req, actor, params }) => {
   await customers.grantAccess(db, actor, params.id, packageId, accessDays)
   return null
 })
+
+// Depende da sessão/banco em cada chamada: nunca pré-renderizar nem cachear.
+export const dynamic = 'force-dynamic'

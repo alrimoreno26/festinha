@@ -209,6 +209,8 @@ function Retorno() {
     enabled: !!orderId,
     // Enquanto pendente, consulta de novo a cada 3 s (no real: o webhook atualiza o pedido).
     refetchInterval: (q) => (q.state.data?.status === 'pending' ? 3000 : false),
+    // O cliente sai para o app do banco para pagar o Pix: ao voltar para a aba, consulta na hora.
+    refetchOnWindowFocus: true,
   })
 
   if (!orderId)

@@ -11,3 +11,6 @@ export const DELETE = route<P>(async ({ req, actor, params }) => {
   await files.remove(db, actor, params.id, { force: req.nextUrl.searchParams.get('force') === '1' })
   return null
 })
+
+// Depende da sessão/banco em cada chamada: nunca pré-renderizar nem cachear.
+export const dynamic = 'force-dynamic'

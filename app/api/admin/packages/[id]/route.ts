@@ -10,3 +10,6 @@ export const DELETE = route<P>(async ({ actor, params }) => {
   await packages.remove(db, actor, params.id)
   return null
 })
+
+// Depende da sessão/banco em cada chamada: nunca pré-renderizar nem cachear.
+export const dynamic = 'force-dynamic'

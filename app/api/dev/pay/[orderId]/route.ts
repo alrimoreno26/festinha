@@ -14,3 +14,6 @@ export const POST = route<{ orderId: string }>(async ({ req, params }) => {
   const { method, ...opts } = await body(req, schema)
   return checkout.simulatePayment(db, params.orderId, method, opts)
 })
+
+// Depende da sessão/banco em cada chamada: nunca pré-renderizar nem cachear.
+export const dynamic = 'force-dynamic'

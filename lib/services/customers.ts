@@ -3,34 +3,12 @@ import { mockCall } from '@/lib/mock/call'
 import { grantEntitlement, sendEmail } from '@/lib/mock/fulfillment'
 import { generateTempPassword, publicUser, requireAdmin } from '@/lib/mock/session'
 import { getDb, mutate, newId } from '@/lib/mock/store'
-import type { Entitlement, EntitlementStatus, Order, Package, User } from '@/lib/types'
-import { z } from 'zod'
+import { newCustomerSchema, zodDetails, type CustomerDetail, type CustomerRow } from '@/lib/contracts'
+import type { z } from 'zod'
 import { ServiceError } from './errors'
 
-export interface CustomerRow extends User {
-  ordersCount: number
-  totalSpentCents: number
-  activeKits: number
-  lastOrderAt: string | null
-}
-
-export interface CustomerEntitlement extends Entitlement {
-  status: EntitlementStatus
-  package: Pick<Package, 'id' | 'title' | 'slug' | 'coverUrl'>
-}
-
-export interface CustomerDetail {
-  customer: User
-  orders: (Order & { packageTitle: string })[]
-  entitlements: CustomerEntitlement[]
-  downloadsCount: number
-}
-
-export const newCustomerSchema = z.object({
-  name: z.string().trim().min(3, 'Informe o nome.'),
-  email: z.string().trim().toLowerCase().email('Email inválido.'),
-  phone: z.string().trim().optional(),
-})
+export { newCustomerSchema } from '@/lib/contracts'
+export type { CustomerDetail, CustomerEntitlement, CustomerRow } from '@/lib/contracts'
 
 export const customersService = {
   list: (search = '') =>
@@ -86,8 +64,7 @@ export const customersService = {
     mockCall(() => {
       const parsed = newCustomerSchema.safeParse(input)
       if (!parsed.success) {
-        const details = Object.fromEntries(parsed.error.issues.map((i) => [String(i.path[0]), i.message]))
-        throw new ServiceError('VALIDATION', 'Revise os campos destacados.', details)
+        throw new ServiceError('VALIDATION', 'Revise os campos destacados.', zodDetails(parsed.error))
       }
       return mutate((db) => {
         requireAdmin(db)

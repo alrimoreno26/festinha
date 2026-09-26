@@ -3,26 +3,10 @@ import { mockCall } from '@/lib/mock/call'
 import { approveOrder, reverseOrder } from '@/lib/mock/fulfillment'
 import { publicUser, requireAdmin } from '@/lib/mock/session'
 import { getDb, mutate } from '@/lib/mock/store'
-import type { Entitlement, EntitlementStatus, Order, OrderStatus, Package, User } from '@/lib/types'
+import type { AdminOrderDetail, AdminOrderRow, OrderFilters } from '@/lib/contracts'
 import { ServiceError } from './errors'
 
-export interface OrderFilters {
-  status?: OrderStatus | 'all'
-  search?: string
-  /** Últimos N dias. */
-  days?: number
-}
-
-export interface AdminOrderRow extends Order {
-  packageTitle: string
-}
-
-export interface AdminOrderDetail {
-  order: Order
-  package: Package | null
-  customer: User | null
-  entitlement: (Entitlement & { status: EntitlementStatus }) | null
-}
+export type { AdminOrderDetail, AdminOrderRow, OrderFilters } from '@/lib/contracts'
 
 export const ordersService = {
   list: (filters: OrderFilters = {}) =>

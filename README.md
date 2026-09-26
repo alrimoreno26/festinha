@@ -9,6 +9,25 @@ npm run dev
 ```
 Abre http://localhost:3000
 
+## Banco de dados (Neon + Drizzle)
+1. Copie `.env.example` para `.env.local` e preencha com as URLs da branch **dev** da Neon.
+2. Comandos:
+```bash
+npm run db:ping       # testa a conexão
+npm run db:generate   # gera migração a partir de lib/server/db/schema.ts
+npm run db:migrate    # aplica migrações pendentes
+npm run db:seed       # APAGA e recria os dados de exemplo (só dev)
+npm run db:studio     # abre o Drizzle Studio para ver as tabelas
+npm run admin:create -- --email voce@exemplo.com --name "Seu Nome"   # cria/promove admin (pede a senha)
+```
+Migrações ficam em `drizzle/` e vão para o git.
+
+## Testes
+```bash
+npm test              # regras de negócio (lib/server/domain) contra um Postgres em memória (PGlite)
+```
+Os testes aplicam as migrações de `drizzle/` e usam os dados do seed — não tocam na Neon.
+
 ## Fase atual: frontend com dados simulados
 Toda a lógica roda no navegador sobre um banco simulado (`localStorage`). Nenhuma integração
 (Postgres, R2, Mercado Pago, email) está ligada ainda.

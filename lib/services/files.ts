@@ -3,15 +3,11 @@ import { getDevSettings } from '@/lib/mock/dev-settings'
 import { requireAdmin } from '@/lib/mock/session'
 import { getDb, mutate, newId, type MockDB } from '@/lib/mock/store'
 import type { FileItem, Package } from '@/lib/types'
+import { MAX_UPLOAD_BYTES, type FolderListing } from '@/lib/contracts'
 import { ServiceError } from './errors'
 
-export const MAX_UPLOAD_BYTES = 500 * 1024 * 1024
-
-export interface FolderListing {
-  path: string
-  folders: { path: string; name: string; fileCount: number }[]
-  files: (FileItem & { usedIn: Pick<Package, 'id' | 'title'>[] })[]
-}
+export { MAX_UPLOAD_BYTES } from '@/lib/contracts'
+export type { FolderListing } from '@/lib/contracts'
 
 const normalizeFolder = (path: string) => path.replace(/^\/+|\/+$/g, '')
 const parentOf = (key: string) => key.split('/').slice(0, -1).join('/')

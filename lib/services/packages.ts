@@ -5,22 +5,9 @@ import { getDb, mutate, newId, type MockDB } from '@/lib/mock/store'
 import type { FileItem, Package } from '@/lib/types'
 import { ServiceError } from './errors'
 
-export type PackageInput = Pick<
-  Package,
-  'title' | 'slug' | 'description' | 'coverUrl' | 'priceCents' | 'active' | 'accessDays' | 'fileIds'
->
+import type { AdminPackageRow, PackageInput, PublicPackage } from '@/lib/contracts'
 
-/** O que o catálogo público vê de cada arquivo: só nome, tipo e tamanho (nunca a key do bucket). */
-export type PublicFile = Pick<FileItem, 'filename' | 'mime' | 'size'>
-
-export interface PublicPackage extends Omit<Package, 'fileIds' | 'active'> {
-  files: PublicFile[]
-}
-
-export interface AdminPackageRow extends Package {
-  salesCount: number
-  revenueCents: number
-}
+export type { AdminPackageRow, PackageInput, PublicFile, PublicPackage } from '@/lib/contracts'
 
 function toPublic(db: MockDB, pkg: Package): PublicPackage {
   const { fileIds, active: _active, ...rest } = pkg

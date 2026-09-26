@@ -1,20 +1,10 @@
 import { mockCall } from '@/lib/mock/call'
 import { requireAdmin } from '@/lib/mock/session'
 import { getDb } from '@/lib/mock/store'
+import type { DashboardStats } from '@/lib/contracts'
 import type { OrderStatus } from '@/lib/types'
 
-export interface DashboardStats {
-  periodDays: number
-  revenueCents: number
-  previousRevenueCents: number
-  paidOrders: number
-  pendingOrders: number
-  newCustomers: number
-  byStatus: Record<OrderStatus, number>
-  /** Receita por dia (mais antigo → mais recente). */
-  daily: { date: string; revenueCents: number; orders: number }[]
-  topPackages: { id: string; title: string; sales: number; revenueCents: number }[]
-}
+export type { DashboardStats } from '@/lib/contracts'
 
 const DAY = 24 * 60 * 60 * 1000
 

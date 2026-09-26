@@ -7,34 +7,11 @@ import { getDevSettings } from '@/lib/mock/dev-settings'
 import { approveOrder } from '@/lib/mock/fulfillment'
 import { getDb, mutate, newId, type MockDB } from '@/lib/mock/store'
 import type { OrderStatus, PaymentMethod } from '@/lib/types'
-import { z } from 'zod'
+import { checkoutSchema, zodDetails, type CheckoutInput, type PublicOrder } from '@/lib/contracts'
 import { ServiceError } from './errors'
 
-export const checkoutSchema = z.object({
-  packageSlug: z.string().min(1),
-  name: z.string().trim().min(3, 'Informe seu nome completo.'),
-  email: z.string().trim().toLowerCase().email('Informe um email válido.'),
-  phone: z
-    .string()
-    .trim()
-    .refine((v) => v.replace(/\D/g, '').length >= 10, 'Informe um WhatsApp com DDD.'),
-})
-
-export type CheckoutInput = z.infer<typeof checkoutSchema>
-
-export interface PublicOrder {
-  id: string
-  status: OrderStatus
-  method: PaymentMethod
-  amountCents: number
-  email: string
-  packageTitle: string
-  packageSlug: string
-  createdAt: string
-  /** Se o email já tinha conta antes desta compra. */
-  existingAccount: boolean
-  pix: { copyPaste: string; expiresAt: string } | null
-}
+export { checkoutSchema } from '@/lib/contracts'
+export type { CheckoutInput, PublicOrder } from '@/lib/contracts'
 
 const PIX_TTL_MS = 30 * 60 * 1000
 
@@ -83,8 +60,7 @@ export const checkoutService = {
     mockCall(() => {
       const parsed = checkoutSchema.safeParse(input)
       if (!parsed.success) {
-        const details = Object.fromEntries(parsed.error.issues.map((i) => [String(i.path[0]), i.message]))
-        throw new ServiceError('VALIDATION', 'Revise os campos destacados.', details)
+        throw new ServiceError('VALIDATION', 'Revise os campos destacados.', zodDetails(parsed.error))
       }
       return mutate((db) => {
         const pkg = db.packages.find((p) => p.slug === parsed.data.packageSlug && p.active)

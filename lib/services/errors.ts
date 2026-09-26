@@ -5,6 +5,7 @@ export type ServiceErrorCode =
   | 'NOT_FOUND'
   | 'VALIDATION'
   | 'CONFLICT'
+  | 'RATE_LIMITED'
 
 export class ServiceError extends Error {
   constructor(

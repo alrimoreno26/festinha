@@ -4,21 +4,11 @@ import { canDownload, entitlementStatus } from '@/lib/entitlements'
 import { mockCall } from '@/lib/mock/call'
 import { requireUser } from '@/lib/mock/session'
 import { getDb, mutate, newId, type MockDB } from '@/lib/mock/store'
-import type { Entitlement, EntitlementStatus, FileItem, Order, Package } from '@/lib/types'
+import type { MyKit, MyKitDetail } from '@/lib/contracts'
+import type { Entitlement, EntitlementStatus, FileItem, Order } from '@/lib/types'
 import { ServiceError } from './errors'
 
-export type KitFile = Pick<FileItem, 'id' | 'filename' | 'mime' | 'size'>
-
-export interface MyKit {
-  entitlement: Entitlement
-  status: EntitlementStatus
-  package: Pick<Package, 'id' | 'slug' | 'title' | 'description' | 'coverUrl'>
-  fileCount: number
-}
-
-export interface MyKitDetail extends MyKit {
-  files: KitFile[]
-}
+export type { KitFile, MyKit, MyKitDetail } from '@/lib/contracts'
 
 const STATUS_ORDER: Record<EntitlementStatus, number> = { expiring: 0, active: 1, expired: 2, revoked: 3 }
 

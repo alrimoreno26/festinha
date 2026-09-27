@@ -82,10 +82,19 @@ function mercadoPago(accessToken: string): PaymentGateway {
     return (text ? JSON.parse(text) : null) as T
   }
 
+  // Credenciais de uma conta de TESTE do MP? (etiqueta "test_user"). Consultado uma vez por processo.
+  let testAccount: Promise<boolean> | null = null
+  const isTestAccount = () =>
+    (testAccount ??= call<{ tags?: string[] }>('GET', '/users/me')
+      .then((me) => !!me.tags?.includes('test_user'))
+      .catch(() => false))
+
   return {
     kind: 'mercadopago',
     async createCheckout(req) {
       const https = req.returnUrl.startsWith('https://')
+      // Em conta de teste, um comprador com email real faz o MP recusar ("uma das partes é de teste e a outra é real").
+      const sendEmail = !isReservedEmail(req.payer.email) && !(await isTestAccount())
       const pref = await call<{ id: string; init_point: string }>(
         'POST',
         '/checkout/preferences',
@@ -100,9 +109,9 @@ function mercadoPago(accessToken: string): PaymentGateway {
               category_id: 'others',
             },
           ],
-          // O email só pré-preenche o checkout do MP (o nosso pedido guarda o email de qualquer forma).
-          // Domínios reservados para testes (.test, .example…) fazem o MP recusar o pagamento: não enviamos.
-          payer: { name: req.payer.name, ...(isReservedEmail(req.payer.email) ? {} : { email: req.payer.email }) },
+          // O email pré-preenche o checkout e ajuda o antifraude do MP (o nosso pedido guarda o email de qualquer forma).
+          // Não enviamos em conta de teste nem para domínios reservados (.test, .example…): o MP recusaria o pagamento.
+          payer: { name: req.payer.name, ...(sendEmail ? { email: req.payer.email } : {}) },
           external_reference: req.orderId,
           metadata: { order_id: req.orderId },
           ...(req.notificationUrl ? { notification_url: req.notificationUrl } : {}),

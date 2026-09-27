@@ -32,6 +32,21 @@ export interface FolderListing {
   path: string
   folders: { path: string; name: string; fileCount: number }[]
   files: (FileItem & { usedIn: Pick<Package, 'id' | 'title'>[] })[]
+  /** Onde os arquivos estão: R2 de verdade ou modo de demonstração (sem credenciais). */
+  storage: { kind: 'r2' | 'demo'; bucket: string | null }
+}
+
+export interface UploadTicket {
+  key: string
+  /** URL assinada para PUT direto no bucket; null no modo demonstração. */
+  uploadUrl: string | null
+  headers: Record<string, string>
+}
+
+export interface SyncResult {
+  added: number
+  alreadyRegistered: number
+  missingInBucket: number
 }
 
 // ---------------------------------------------------------------------------

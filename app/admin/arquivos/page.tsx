@@ -21,7 +21,7 @@ import { formatBytes, formatDate } from '@/lib/format'
 import { errorMessage, filesService, qk } from '@/lib/services'
 import { MAX_UPLOAD_BYTES, type FolderListing } from '@/lib/services/files'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, Folder, FolderPlus, Home, Pencil, RotateCcw, Trash2, Upload, X } from 'lucide-react'
+import { ChevronRight, Folder, FolderPlus, Home, Pencil, RefreshCw, RotateCcw, Trash2, Upload, X } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useState, type FormEvent } from 'react'
@@ -134,15 +134,44 @@ function Explorer() {
     },
   })
 
+  const sync = useMutation({
+    mutationFn: filesService.syncFromBucket,
+    onSuccess: ({ added, alreadyRegistered, missingInBucket }) => {
+      toast.success(
+        added
+          ? `${added} ${added === 1 ? 'arquivo importado' : 'arquivos importados'} do bucket (${alreadyRegistered} já estavam registrados).`
+          : `Tudo em dia: nenhum arquivo novo no bucket (${alreadyRegistered} registrados).`,
+      )
+      if (missingInBucket) toast.error(`${missingInBucket} ${missingInBucket === 1 ? 'arquivo registrado não existe' : 'arquivos registrados não existem'} mais no bucket.`)
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  })
+
   const activeUploads = uploads.filter((u) => u.status !== 'done' || u.folder === path)
+  const storage = query.data?.storage
 
   return (
     <>
       <PageHeader
         title="Arquivos"
-        description="Conteúdo do bucket (Cloudflare R2). Os clientes nunca veem estes caminhos."
+        description={
+          <span className="flex flex-wrap items-center gap-2">
+            Os clientes nunca veem estes caminhos.
+            {storage &&
+              (storage.kind === 'r2' ? (
+                <Badge tone="info">R2 · {storage.bucket}</Badge>
+              ) : (
+                <Badge tone="warning">Modo demonstração — R2 não configurado</Badge>
+              ))}
+          </span>
+        }
         actions={
           <>
+            {storage?.kind === 'r2' && (
+              <Button variant="ghost" onClick={() => sync.mutate()} loading={sync.isPending}>
+                <RefreshCw size={16} /> Sincronizar com o bucket
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setNewFolder('')}>
               <FolderPlus size={16} /> Nova pasta
             </Button>
@@ -324,7 +353,11 @@ function Explorer() {
             if (renaming) rename.mutate({ id: renaming.file.id, name: renaming.name })
           }}
         >
-          <Field label="Nome do arquivo" error={rename.isError ? errorMessage(rename.error) : null}>
+          <Field
+            label="Nome do arquivo"
+            hint="É o nome que o cliente vê e com que o arquivo é baixado. O arquivo no bucket não muda de lugar."
+            error={rename.isError ? errorMessage(rename.error) : null}
+          >
             <Input value={renaming?.name ?? ''} onChange={(e) => renaming && setRenaming({ ...renaming, name: e.target.value })} />
           </Field>
         </form>

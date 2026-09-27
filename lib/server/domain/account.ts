@@ -10,6 +10,7 @@ import type { Db } from '../db/types'
 import { requireCustomer, type Actor } from '../guards'
 import { newId } from '../ids'
 import { toEntitlement, toFile, toOrder } from '../mappers'
+import { getStorage, type Storage } from '../storage'
 
 const STATUS_ORDER: Record<EntitlementStatus, number> = { expiring: 0, active: 1, expired: 2, revoked: 3 }
 
@@ -68,16 +69,12 @@ export async function myOrders(db: Db, actor: Actor) {
   return rows.map((r) => ({ ...toOrder(r.order), packageTitle: r.packageTitle ?? '—' }))
 }
 
-/**
- * Autoriza o download de um arquivo e registra no histórico.
- * A API transforma o resultado numa URL (fase 3: URL assinada do R2, válida por poucos minutos).
- */
-export async function authorizeDownload(db: Db, actor: Actor, fileId: string) {
+/** Confere se o cliente tem acesso válido a algum pacote que contém o arquivo. */
+async function checkDownloadAccess(db: Db, actor: Actor, fileId: string) {
   const user = requireCustomer(actor)
   const [file] = await db.select().from(t.files).where(eq(t.files.id, fileId))
   if (!file) throw new ServiceError('NOT_FOUND', 'Arquivo não encontrado.')
 
-  // Algum pacote com acesso válido do cliente contém este arquivo?
   const grants = await db
     .select({ ent: t.entitlements })
     .from(t.entitlements)
@@ -85,7 +82,27 @@ export async function authorizeDownload(db: Db, actor: Actor, fileId: string) {
     .where(and(eq(t.entitlements.userId, user.id), eq(t.packageFiles.fileId, fileId)))
   if (!grants.some(({ ent }) => canDownload(entitlementStatus(toEntitlement(ent)))))
     throw new ServiceError('FORBIDDEN', 'Seu acesso a este arquivo expirou ou foi revogado.')
+  return { user, file }
+}
 
+/** Autoriza o download e registra no histórico. */
+export async function authorizeDownload(db: Db, actor: Actor, fileId: string) {
+  const { user, file } = await checkDownloadAccess(db, actor, fileId)
   await db.insert(t.downloads).values({ id: newId('dl'), userId: user.id, fileId })
   return toFile(file)
+}
+
+/**
+ * Link de download: confere o acesso, confere que o objeto existe no bucket, registra e devolve
+ * uma URL assinada que vence em poucos minutos (não adianta repassar o link).
+ */
+export async function downloadLink(db: Db, actor: Actor, fileId: string, storage: Storage = getStorage()) {
+  const { user, file } = await checkDownloadAccess(db, actor, fileId)
+  if (storage.kind !== 'demo' && !(await storage.head(file.key))) {
+    console.error('[download] objeto ausente no bucket', file.key)
+    throw new ServiceError('NOT_FOUND', 'Este arquivo está temporariamente indisponível. Já fomos avisados; tente de novo mais tarde ou fale com a gente.')
+  }
+  await db.insert(t.downloads).values({ id: newId('dl'), userId: user.id, fileId })
+  const filename = storage.kind === 'demo' ? `${file.filename}.demo.txt` : file.filename
+  return { url: await storage.presignDownload(file.key, file.filename, file.mime), filename }
 }

@@ -1,7 +1,7 @@
 // Suporte à DevToolbar (modo de simulação). As rotas que usam isto só existem com devOnly().
 
 import { ServiceError } from '@/lib/services/errors'
-import { desc, eq, sql } from 'drizzle-orm'
+import { asc, desc, eq, sql } from 'drizzle-orm'
 import * as t from '../db/schema'
 import type { Db } from '../db/types'
 import { toOutboxEmail, toUser } from '../mappers'
@@ -19,7 +19,11 @@ export async function clearOutbox(db: Db) {
 
 /** Entra como uma conta existente sem senha — só para os atalhos da DevToolbar. */
 export async function loginAs(db: Db, email: string) {
-  const [user] = await db.select().from(t.users).where(eq(t.users.email, email.trim().toLowerCase()))
+  // "admin" = qualquer administrador (o do seed pode não existir mais depois da limpeza).
+  const [user] =
+    email === 'admin'
+      ? await db.select().from(t.users).where(eq(t.users.role, 'admin')).orderBy(asc(t.users.createdAt)).limit(1)
+      : await db.select().from(t.users).where(eq(t.users.email, email.trim().toLowerCase()))
   if (!user) throw new ServiceError('NOT_FOUND', 'Conta de teste não encontrada. Restaure os dados de exemplo.')
   const session = await createSession(db, user.id, 'devtoolbar')
   return { ...session, user: toUser(user) }

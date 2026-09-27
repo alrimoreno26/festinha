@@ -23,7 +23,8 @@ const SEEN_KEY = 'festinhas:devtoolbar:seen-emails'
 
 // Contas do seed (lib/server/seed-data.ts). Só os emails: o atalho entra sem senha.
 const TEST_ACCOUNTS = {
-  admin: 'admin@festinhas.test',
+  // Qualquer administrador existente (o de exemplo ou o seu real).
+  admin: 'admin',
   maria: 'maria@festinhas.test',
   ana: 'ana@festinhas.test',
 }

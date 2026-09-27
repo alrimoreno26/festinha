@@ -51,6 +51,13 @@ export function subscribeDevSettings(listener: Listener) {
   return () => listeners.delete(listener)
 }
 
-/** Mesma regra da API (lib/server/http.ts): ligado em dev; em produção só se pedido explicitamente. */
+/**
+ * Mesma regra da API (lib/server/http.ts): ligado em dev; em builds de produção só se pedido
+ * explicitamente; no ambiente Production da Vercel, nunca (NEXT_PUBLIC_VERCEL_ENV é exposta pela Vercel).
+ */
 export const devToolsEnabled =
-  process.env.NODE_ENV !== 'production' ? process.env.NEXT_PUBLIC_DEVTOOLS !== 'false' : process.env.NEXT_PUBLIC_DEVTOOLS === 'true'
+  process.env.NEXT_PUBLIC_VERCEL_ENV === 'production'
+    ? false
+    : process.env.NODE_ENV !== 'production'
+      ? process.env.NEXT_PUBLIC_DEVTOOLS !== 'false'
+      : process.env.NEXT_PUBLIC_DEVTOOLS === 'true'

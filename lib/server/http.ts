@@ -118,8 +118,13 @@ export async function body<S extends z.ZodTypeAny>(req: NextRequest, schema: S):
   return parsed.data
 }
 
-/** Endpoints de simulação: ligados em desenvolvimento; em produção só com DEV_TOOLS=true. */
+/**
+ * Endpoints de simulação: ligados em desenvolvimento; em builds de produção só com DEV_TOOLS=true
+ * (ex.: preview da Vercel). No ambiente Production da Vercel ficam SEMPRE desligados, mesmo que a
+ * variável tenha sido configurada lá por engano — eles permitem entrar como admin sem senha.
+ */
 export function devToolsEnabled() {
+  if (process.env.VERCEL_ENV === 'production') return false
   return process.env.NODE_ENV !== 'production' ? process.env.DEV_TOOLS !== 'false' : process.env.DEV_TOOLS === 'true'
 }
 

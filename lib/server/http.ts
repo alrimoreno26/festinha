@@ -4,8 +4,10 @@ import { ServiceError, type ServiceErrorCode } from '@/lib/services/errors'
 import { cookies } from 'next/headers'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { z } from 'zod'
+import { waitUntil } from '@vercel/functions'
 import { db } from './db'
 import * as auth from './domain/auth'
+import { dispatchPendingEmails } from './email/dispatch'
 import type { Actor } from './guards'
 
 export const SESSION_COOKIE = 'fs_session'
@@ -88,12 +90,19 @@ export interface RouteContext<P> {
 }
 
 /** Envolve um route handler: sessão, CSRF, JSON e tradução de erros. */
-export function route<P = Record<string, never>>(fn: (ctx: RouteContext<P>) => Promise<unknown>, { csrf = true } = {}) {
+/**
+ * `emails`: dispara o envio dos emails pendentes depois da resposta (padrão: só em métodos que alteram dados;
+ * ligue também em GETs que podem gerar email, como a consulta do pedido na volta do Mercado Pago).
+ */
+export function route<P = Record<string, never>>(fn: (ctx: RouteContext<P>) => Promise<unknown>, { csrf = true, emails }: { csrf?: boolean; emails?: boolean } = {}) {
   return async (req: NextRequest, { params }: { params: P }) => {
     try {
       if (csrf && MUTATING.has(req.method)) assertSameOrigin(req)
       const { actor, token } = await resolveSession()
       const result = await fn({ req, params, actor, sessionToken: token })
+      // Operações que alteram dados podem ter enfileirado emails: envia em segundo plano,
+      // sem atrasar a resposta (na Vercel o waitUntil mantém a função viva até terminar).
+      if (emails ?? MUTATING.has(req.method)) waitUntil(dispatchPendingEmails(db).catch((err) => console.error('[email] despacho falhou', err)))
       if (result instanceof Response) return result
       return NextResponse.json(result ?? null, { headers: { 'Cache-Control': 'no-store' } })
     } catch (err) {

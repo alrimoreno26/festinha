@@ -78,5 +78,7 @@ export function toOutboxEmail(m: Row<typeof t.emailOutbox>): OutboxEmail {
     actionUrl: m.actionUrl ?? undefined,
     actionLabel: m.actionLabel ?? undefined,
     createdAt: iso(m.createdAt),
+    sentAt: isoOrNull(m.sentAt),
+    lastError: m.lastError,
   }
 }

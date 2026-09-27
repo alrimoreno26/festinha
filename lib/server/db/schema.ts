@@ -228,8 +228,13 @@ export const emailOutbox = pgTable(
     createdAt: createdAt(),
     sentAt: tstz('sent_at'),
     providerId: text('provider_id'),
+    /** Tentativas de envio (para de tentar depois de algumas falhas). */
+    attempts: integer('attempts').notNull().default(0),
+    lastError: text('last_error'),
+    /** Próxima tentativa (espera cresce a cada falha). */
+    nextAttemptAt: tstz('next_attempt_at').notNull().defaultNow(),
   },
-  (t) => [index('email_outbox_created_idx').on(t.createdAt)],
+  (t) => [index('email_outbox_created_idx').on(t.createdAt), index('email_outbox_pending_idx').on(t.sentAt, t.nextAttemptAt)],
 )
 
 /**

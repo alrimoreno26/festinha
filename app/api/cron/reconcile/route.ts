@@ -1,4 +1,5 @@
 import * as payments from '@/lib/server/domain/payments'
+import { dispatchPendingEmails } from '@/lib/server/email/dispatch'
 import { db, route } from '@/lib/server/http'
 import { ServiceError } from '@/lib/services/errors'
 
@@ -9,7 +10,10 @@ import { ServiceError } from '@/lib/services/errors'
 export const GET = route(async ({ req }) => {
   const secret = process.env.CRON_SECRET
   if (!secret || req.headers.get('authorization') !== `Bearer ${secret}`) throw new ServiceError('UNAUTHORIZED', 'Não autorizado.')
-  return payments.reconcilePending(db)
+  const reconciled = await payments.reconcilePending(db)
+  // Reenvia emails que falharam (o despacho normal acontece logo após cada operação).
+  const emails = await dispatchPendingEmails(db, { limit: 100 })
+  return { reconciled, emails }
 })
 
 export const maxDuration = 60

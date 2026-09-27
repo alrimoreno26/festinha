@@ -336,7 +336,8 @@ function EmailsTab() {
         <div key={email.id} className="rounded-2xl border border-black/5 p-3">
           <p className="font-medium">{email.subject}</p>
           <p className="text-xs text-gray-500">
-            para {email.to} · {formatDateTime(email.createdAt)}
+            para {email.to} · {formatDateTime(email.createdAt)} ·{' '}
+            {email.sentAt ? <span className="text-emerald-700">enviado</span> : email.lastError ? <span className="text-red-600" title={email.lastError}>falhou</span> : 'só registrado'}
           </p>
           <p className="mt-2 whitespace-pre-line text-gray-700">{email.body}</p>
           {email.actionUrl && (

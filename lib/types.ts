@@ -88,6 +88,9 @@ export interface OutboxEmail {
   actionUrl?: string
   actionLabel?: string
   createdAt: ISODate
+  /** Quando foi entregue ao provedor de email (null = só registrado / pendente). */
+  sentAt?: ISODate | null
+  lastError?: string | null
 }
 
 export interface Session {

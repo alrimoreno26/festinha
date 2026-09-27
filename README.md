@@ -34,6 +34,11 @@ npm test              # regras de negócio (lib/server/domain) contra um Postgre
 ```
 Os testes aplicam as migrações de `drizzle/` e usam os dados do seed — não tocam na Neon.
 
+## Emails (Resend)
+Os emails são gravados na `email_outbox` junto com a operação que os gera e enviados pelo Resend logo depois
+(em segundo plano), com até 5 tentativas. Sem `RESEND_API_KEY` ficam só registrados (DevToolbar → Emails).
+Em desenvolvimento/preview use `EMAIL_TO_OVERRIDE` para que tudo vá para o seu email.
+
 ## Modo de simulação (até as fases 3–5)
 Dados, login e regras já são reais (Neon). Continuam simulados: pagamento (simulador no lugar do
 Mercado Pago), conteúdo dos arquivos (R2) e envio de emails (ficam na tabela `email_outbox`).

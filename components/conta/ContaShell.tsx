@@ -5,8 +5,9 @@ import { useSession } from '@/lib/hooks/useSession'
 import { authService, qk } from '@/lib/services'
 import { useQueryClient } from '@tanstack/react-query'
 import { LogOut, Package, ReceiptText, UserRound } from 'lucide-react'
+import { hardNavigate } from '@/lib/navigation'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 
 const nav = [
@@ -17,7 +18,6 @@ const nav = [
 
 export function ContaShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const router = useRouter()
   const queryClient = useQueryClient()
   const { user } = useSession()
   // No primeiro acesso a pessoa só pode trocar a senha — a navegação fica escondida.
@@ -27,7 +27,7 @@ export function ContaShell({ children }: { children: ReactNode }) {
     await authService.logout()
     queryClient.setQueryData(qk.session, null)
     queryClient.removeQueries({ queryKey: ['me'] })
-    router.replace('/conta/login')
+    hardNavigate('/conta/login')
   }
 
   return (

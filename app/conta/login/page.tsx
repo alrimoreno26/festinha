@@ -6,24 +6,20 @@ import { useSession } from '@/lib/hooks/useSession'
 import { authService, errorMessage, qk } from '@/lib/services'
 import type { User } from '@/lib/types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { hardNavigate, homeAfterLogin } from '@/lib/navigation'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState, type FormEvent } from 'react'
 
 function LoginForm() {
-  const router = useRouter()
   const params = useSearchParams()
   const queryClient = useQueryClient()
   const { user, isLoading } = useSession()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
-  const goHome = (u: User) => {
-    const next = params.get('next')
-    if (u.mustChangePassword) router.replace('/conta/trocar-senha')
-    else if (next?.startsWith('/') && !next.startsWith('//')) router.replace(next)
-    else router.replace(u.role === 'admin' ? '/admin' : '/conta')
-  }
+  // Recarga completa: descarta redirecionamentos do middleware guardados em cache de antes do login.
+  const goHome = (u: User) => hardNavigate(homeAfterLogin(u, params.get('next')))
 
   // Já logado: não mostra o formulário.
   useEffect(() => {

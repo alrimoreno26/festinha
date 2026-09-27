@@ -12,8 +12,8 @@ import { useSession } from '@/lib/hooks/useSession'
 import { devService, errorMessage, qk } from '@/lib/services'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Mail, RotateCcw, Trash2, Wrench, X } from 'lucide-react'
+import { hardNavigate } from '@/lib/navigation'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
 
 type Tab = 'cenario' | 'sessao' | 'dados' | 'emails'
@@ -203,7 +203,6 @@ function ScenarioTab() {
 
 function SessionTab() {
   const { user } = useSession()
-  const router = useRouter()
   const queryClient = useQueryClient()
   const toast = useToast()
 
@@ -213,7 +212,7 @@ function SessionTab() {
       queryClient.setQueryData(qk.session, session)
       queryClient.removeQueries({ queryKey: ['me'] })
       queryClient.removeQueries({ queryKey: ['admin'] })
-      router.push(go)
+      hardNavigate(go)
     },
     onError: (err) => toast.error(errorMessage(err)),
   })

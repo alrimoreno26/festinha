@@ -5,8 +5,9 @@ import { useSession } from '@/lib/hooks/useSession'
 import { authService, qk } from '@/lib/services'
 import { useQueryClient } from '@tanstack/react-query'
 import { ExternalLink, FolderOpen, LayoutDashboard, LogOut, Menu, Package, ReceiptText, Users, X } from 'lucide-react'
+import { hardNavigate } from '@/lib/navigation'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useEffect, useState, type ReactNode } from 'react'
 
 const nav = [
@@ -43,7 +44,6 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const { user } = useSession()
-  const router = useRouter()
   const pathname = usePathname()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
@@ -53,7 +53,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     await authService.logout()
     queryClient.setQueryData(qk.session, null)
     queryClient.removeQueries({ queryKey: ['admin'] })
-    router.replace('/conta/login')
+    hardNavigate('/conta/login')
   }
 
   const brand = (

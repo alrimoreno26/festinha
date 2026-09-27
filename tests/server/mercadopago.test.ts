@@ -157,43 +157,65 @@ describe('webhook', () => {
     expect(verifyMpSignature({ signature: null, requestId: 'req-1', dataId: '123', secret })).toBe(false)
   })
 
-  it('aviso válido aprova o pedido; o mesmo aviso de novo não reprocessa; assinatura inválida → 401', async () => {
-    const { db, mp, orderId } = await newMpOrder()
-    mp.pay('170', orderId, 'approved', 4990)
-    const input = (requestId: string, signature = sign('170', requestId)) => ({
-      signature,
-      requestId,
-      query: new URLSearchParams({ type: 'payment', 'data.id': '170' }),
-      body: { type: 'payment', action: 'payment.updated', data: { id: '170' } },
-    })
-
-    expect(await payments.handleMpWebhook(db, input('req-a', 'ts=1,v1=00'), { secret, gateway: mp.gateway })).toMatchObject({ status: 401 })
-    expect((await statusOf(db, orderId)).status).toBe('pending')
-
-    expect(await payments.handleMpWebhook(db, input('req-b'), { secret, gateway: mp.gateway })).toEqual({ status: 200, result: `approved:${orderId}` })
-    expect((await statusOf(db, orderId)).status).toBe('approved')
-    expect(await payments.handleMpWebhook(db, input('req-b'), { secret, gateway: mp.gateway })).toEqual({ status: 200, result: 'duplicate' })
-
-    const [event] = await db.select().from(t.webhookEvents).where(eq(t.webhookEvents.eventKey, 'req-b'))
-    expect(event.processedAt).not.toBeNull()
+  const paymentNotice = (id: string, requestId: string, signature: string | null) => ({
+    signature,
+    requestId,
+    query: new URLSearchParams({ type: 'payment', 'data.id': id, 'x-vercel-protection-bypass': 'SEGREDO-DO-BYPASS' }),
+    body: { type: 'payment', action: 'payment.updated', data: { id } },
   })
 
-  it('aviso recusado fica registrado para diagnóstico, sem o token de bypass da Vercel', async () => {
-    const { db, mp } = await newMpOrder()
-    const r = await payments.handleMpWebhook(
-      db,
-      {
-        signature: 'ts=1,v1=00',
-        requestId: 'req-x',
-        query: new URLSearchParams({ type: 'payment', 'data.id': '9', 'x-vercel-protection-bypass': 'SEGREDO-DO-BYPASS' }),
-        body: null,
-      },
-      { secret, gateway: mp.gateway },
-    )
-    expect(r.status).toBe(401)
-    const [rej] = await db.select().from(t.webhookEvents).where(eq(t.webhookEvents.provider, 'mercadopago-rejected'))
-    expect(rej).toMatchObject({ error: 'invalid_signature', resourceId: '9' })
-    expect(rej.payload).not.toContain('SEGREDO-DO-BYPASS')
+  it('aviso assinado aprova o pedido; o mesmo aviso de novo não reprocessa', async () => {
+    const { db, mp, orderId } = await newMpOrder()
+    mp.pay('170', orderId, 'approved', 4990)
+    expect(await payments.handleMpWebhook(db, paymentNotice('170', 'req-b', sign('170', 'req-b')), { secret, gateway: mp.gateway })).toEqual({
+      status: 200,
+      result: `approved:${orderId}`,
+    })
+    expect((await statusOf(db, orderId)).status).toBe('approved')
+    expect(await payments.handleMpWebhook(db, paymentNotice('170', 'req-b', sign('170', 'req-b')), { secret, gateway: mp.gateway })).toEqual({
+      status: 200,
+      result: 'duplicate',
+    })
+    const [event] = await db.select().from(t.webhookEvents).where(eq(t.webhookEvents.eventKey, 'req-b'))
+    expect(event.processedAt).not.toBeNull()
+    expect(event.payload).not.toContain('SEGREDO-DO-BYPASS')
+  })
+
+  it('aviso FALSO sem assinatura não aprova nada (o pagamento é sempre conferido na API do MP)', async () => {
+    const { db, mp, orderId } = await newMpOrder()
+    // O "atacante" inventa um pagamento aprovado; na API do MP ele não existe.
+    const r = await payments.handleMpWebhook(db, paymentNotice('999', 'req-f', null), { secret, gateway: mp.gateway })
+    expect(r.status).toBe(200)
+    expect((await statusOf(db, orderId)).status).toBe('pending')
+    // Um pagamento que existe mas está pendente também não libera nada.
+    mp.pay('998', orderId, 'pending', 4990)
+    await payments.handleMpWebhook(db, paymentNotice('998', 'req-g', 'ts=1,v1=00'), { secret, gateway: mp.gateway })
+    expect((await statusOf(db, orderId)).status).toBe('pending')
+  })
+
+  it('aviso sem assinatura verificável de um pagamento aprovado de verdade é processado e marcado', async () => {
+    const { db, mp, orderId } = await newMpOrder()
+    mp.pay('171', orderId, 'approved', 4990)
+    const r = await payments.handleMpWebhook(db, paymentNotice('171', 'req-u', null), { secret, gateway: mp.gateway })
+    expect(r).toEqual({ status: 200, result: `approved:${orderId} (não verificado)` })
+    expect((await statusOf(db, orderId)).status).toBe('approved')
+    const [event] = await db.select().from(t.webhookEvents).where(eq(t.webhookEvents.eventKey, 'req-u'))
+    expect(event.error).toBe('unverified_signature')
+  })
+
+  it('avisos não verificados repetidos do mesmo pagamento são limitados', async () => {
+    const { db, mp, orderId } = await newMpOrder()
+    let lookups = 0
+    const getPayment = mp.gateway.getPayment
+    mp.gateway.getPayment = async (id) => {
+      lookups++
+      return getPayment(id)
+    }
+    mp.pay('172', orderId, 'pending', 4990)
+    await payments.handleMpWebhook(db, paymentNotice('172', 'req-1', null), { secret, gateway: mp.gateway })
+    const second = await payments.handleMpWebhook(db, paymentNotice('172', 'req-2', null), { secret, gateway: mp.gateway })
+    expect(second.result).toBe('throttled')
+    expect(lookups).toBe(1)
   })
 
   it('tópicos que não são pagamento são aceitos e ignorados', async () => {

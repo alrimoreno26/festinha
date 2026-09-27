@@ -2,7 +2,7 @@
 // e pela conciliação. Nunca confia no conteúdo do aviso: sempre consulta o pagamento na API do MP.
 
 import { ServiceError } from '@/lib/services/errors'
-import { and, eq, gte, lte } from 'drizzle-orm'
+import { and, eq, gte, lte, ne } from 'drizzle-orm'
 import * as t from '../db/schema'
 import type { Db } from '../db/types'
 import { requireAdmin, type Actor } from '../guards'
@@ -154,9 +154,16 @@ export interface WebhookInput {
   body: Record<string, unknown> | null
 }
 
+const UNVERIFIED_THROTTLE_MS = 30 * 1000
+
 /**
- * Processa um aviso do webhook. Devolve o status HTTP a responder:
- * 200 = processado ou ignorado de propósito; 401 = assinatura inválida; erros sobem (→ 500, o MP tenta de novo).
+ * Processa um aviso do webhook. Devolve o status HTTP a responder (200 = processado ou ignorado de
+ * propósito; erros sobem → 500 e o MP tenta de novo).
+ *
+ * Segurança: o aviso é só uma "pista" de que algo mudou. Nunca confiamos no conteúdo — sempre consultamos
+ * o pagamento na API do MP com o nosso token e conferimos pedido, valor e moeda. Por isso um aviso sem
+ * assinatura válida não é recusado (o MP não assina de forma verificável os avisos "legacy" nem os da
+ * notification_url da preferência); ele só é processado com limite de frequência e fica marcado.
  */
 export async function handleMpWebhook(db: Db, input: WebhookInput, { secret = process.env.MP_WEBHOOK_SECRET?.trim(), gateway = getPaymentGateway() } = {}) {
   const body = input.body ?? {}
@@ -164,63 +171,64 @@ export async function handleMpWebhook(db: Db, input: WebhookInput, { secret = pr
   const topic = String(input.query.get('type') ?? input.query.get('topic') ?? body.type ?? body.topic ?? '')
   const dataId = String(input.query.get('data.id') ?? input.query.get('id') ?? data.id ?? '') || null
 
+  const verified = !!secret && verifyMpSignature({ signature: input.signature, requestId: input.requestId, dataId, secret })
+  if (!verified) console.warn('[webhook] aviso sem assinatura verificável', { topic, dataId, hasSignature: !!input.signature })
+
   // A query pode trazer o token de bypass da Vercel: nunca gravar.
   const safeQuery = new URLSearchParams(input.query)
   safeQuery.delete('x-vercel-protection-bypass')
-  const payload = JSON.stringify({ query: safeQuery.toString(), body })
-
-  if (secret && !verifyMpSignature({ signature: input.signature, requestId: input.requestId, dataId, secret })) {
-    console.warn('[webhook] assinatura inválida', { topic, dataId, hasSignature: !!input.signature, hasRequestId: !!input.requestId })
-    // Registra a recusa para diagnóstico (a assinatura é um HMAC, não revela o segredo).
-    await db.insert(t.webhookEvents).values({
-      provider: 'mercadopago-rejected',
-      eventKey: `${input.requestId ?? 'sem-request-id'}:${Date.now()}`,
-      topic,
-      resourceId: dataId,
-      payload: JSON.stringify({ query: safeQuery.toString(), body, signature: input.signature, requestId: input.requestId }),
-      error: 'invalid_signature',
-    })
-    return { status: 401 as const, result: 'invalid_signature' }
-  }
-  if (!secret && process.env.VERCEL_ENV === 'production') {
-    // Em produção a assinatura é obrigatória.
-    throw new Error('MP_WEBHOOK_SECRET não configurado')
-  }
+  const payload = JSON.stringify({ query: safeQuery.toString(), body, verified })
 
   const eventKey = input.requestId ?? `${topic}:${dataId}:${String(body.action ?? '')}`
+  const byKey = and(eq(t.webhookEvents.provider, 'mercadopago'), eq(t.webhookEvents.eventKey, eventKey))
   const inserted = await db
     .insert(t.webhookEvents)
     .values({ provider: 'mercadopago', eventKey, topic, resourceId: dataId, payload })
     .onConflictDoNothing()
     .returning({ id: t.webhookEvents.id })
-  const event = inserted[0]
-  if (!event) {
+  if (!inserted[0]) {
     // Mesmo aviso de novo: se já foi processado, não faz nada.
-    const [prev] = await db
-      .select()
-      .from(t.webhookEvents)
-      .where(and(eq(t.webhookEvents.provider, 'mercadopago'), eq(t.webhookEvents.eventKey, eventKey)))
+    const [prev] = await db.select().from(t.webhookEvents).where(byKey)
     if (prev?.processedAt) return { status: 200 as const, result: 'duplicate' }
   }
+  const finish = (error: string | null = null) => db.update(t.webhookEvents).set({ processedAt: new Date(), error }).where(byKey)
 
-  // Só nos interessam pagamentos (o MP também avisa sobre merchant_order, etc.).
-  if (topic !== 'payment' || !dataId) {
-    await db.update(t.webhookEvents).set({ processedAt: new Date() }).where(eq(t.webhookEvents.eventKey, eventKey))
+  // Só nos interessam pagamentos (o MP também avisa sobre merchant_order, etc.). IDs de pagamento são numéricos.
+  if (topic !== 'payment' || !dataId || !/^\d+$/.test(dataId)) {
+    await finish()
     return { status: 200 as const, result: 'ignored_topic' }
+  }
+
+  // Aviso não verificado: se este pagamento já foi consultado há pouco, não consulta de novo
+  // (evita que alguém use o webhook para disparar consultas em massa).
+  if (!verified) {
+    const [recent] = await db
+      .select({ id: t.webhookEvents.id })
+      .from(t.webhookEvents)
+      .where(
+        and(
+          eq(t.webhookEvents.provider, 'mercadopago'),
+          eq(t.webhookEvents.resourceId, dataId),
+          ne(t.webhookEvents.eventKey, eventKey),
+          gte(t.webhookEvents.processedAt, new Date(Date.now() - UNVERIFIED_THROTTLE_MS)),
+        ),
+      )
+      .limit(1)
+    if (recent) {
+      await finish('throttled')
+      return { status: 200 as const, result: 'throttled' }
+    }
   }
 
   try {
     const { orderId, outcome } = await syncPayment(db, dataId, gateway)
-    await db
-      .update(t.webhookEvents)
-      .set({ processedAt: new Date(), error: null })
-      .where(and(eq(t.webhookEvents.provider, 'mercadopago'), eq(t.webhookEvents.eventKey, eventKey)))
-    return { status: 200 as const, result: `${outcome}${orderId ? `:${orderId}` : ''}` }
+    await finish(verified ? null : 'unverified_signature')
+    return { status: 200 as const, result: `${outcome}${orderId ? `:${orderId}` : ''}${verified ? '' : ' (não verificado)'}` }
   } catch (err) {
     await db
       .update(t.webhookEvents)
       .set({ error: String((err as Error).message ?? err).slice(0, 500) })
-      .where(and(eq(t.webhookEvents.provider, 'mercadopago'), eq(t.webhookEvents.eventKey, eventKey)))
+      .where(byKey)
     throw err
   }
 }

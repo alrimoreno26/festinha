@@ -102,14 +102,30 @@ export const demoStorage: Storage = {
 
 let cached: Storage | null = null
 
+/**
+ * Lê uma variável tolerando erros comuns ao colar no painel da Vercel:
+ * espaços/quebra de linha nas pontas e aspas em volta (copiadas do formato do .env).
+ */
+function envValue(name: string) {
+  const raw = process.env[name]?.trim()
+  if (!raw) return undefined
+  return raw.replace(/^(["'])(.*)\1$/, '$2').trim() || undefined
+}
+
+export function r2Config() {
+  return {
+    accountId: envValue('R2_ACCOUNT_ID'),
+    accessKeyId: envValue('R2_ACCESS_KEY_ID'),
+    secretAccessKey: envValue('R2_SECRET_ACCESS_KEY'),
+    bucket: envValue('R2_BUCKET'),
+  }
+}
+
 /** Storage configurado pelas variáveis R2_*; sem elas, modo demo. */
 export function getStorage(): Storage {
   if (cached) return cached
-  const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET } = process.env
-  cached =
-    R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY && R2_BUCKET
-      ? r2Storage(R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET)
-      : demoStorage
+  const { accountId, accessKeyId, secretAccessKey, bucket } = r2Config()
+  cached = accountId && accessKeyId && secretAccessKey && bucket ? r2Storage(accountId, accessKeyId, secretAccessKey, bucket) : demoStorage
   return cached
 }
 

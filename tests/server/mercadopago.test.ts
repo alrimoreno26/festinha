@@ -178,6 +178,24 @@ describe('webhook', () => {
     expect(event.processedAt).not.toBeNull()
   })
 
+  it('aviso recusado fica registrado para diagnóstico, sem o token de bypass da Vercel', async () => {
+    const { db, mp } = await newMpOrder()
+    const r = await payments.handleMpWebhook(
+      db,
+      {
+        signature: 'ts=1,v1=00',
+        requestId: 'req-x',
+        query: new URLSearchParams({ type: 'payment', 'data.id': '9', 'x-vercel-protection-bypass': 'SEGREDO-DO-BYPASS' }),
+        body: null,
+      },
+      { secret, gateway: mp.gateway },
+    )
+    expect(r.status).toBe(401)
+    const [rej] = await db.select().from(t.webhookEvents).where(eq(t.webhookEvents.provider, 'mercadopago-rejected'))
+    expect(rej).toMatchObject({ error: 'invalid_signature', resourceId: '9' })
+    expect(rej.payload).not.toContain('SEGREDO-DO-BYPASS')
+  })
+
   it('tópicos que não são pagamento são aceitos e ignorados', async () => {
     const { db, mp } = await newMpOrder()
     const r = await payments.handleMpWebhook(

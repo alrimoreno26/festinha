@@ -164,8 +164,22 @@ export async function handleMpWebhook(db: Db, input: WebhookInput, { secret = pr
   const topic = String(input.query.get('type') ?? input.query.get('topic') ?? body.type ?? body.topic ?? '')
   const dataId = String(input.query.get('data.id') ?? input.query.get('id') ?? data.id ?? '') || null
 
+  // A query pode trazer o token de bypass da Vercel: nunca gravar.
+  const safeQuery = new URLSearchParams(input.query)
+  safeQuery.delete('x-vercel-protection-bypass')
+  const payload = JSON.stringify({ query: safeQuery.toString(), body })
+
   if (secret && !verifyMpSignature({ signature: input.signature, requestId: input.requestId, dataId, secret })) {
-    console.warn('[webhook] assinatura inválida', { topic, dataId })
+    console.warn('[webhook] assinatura inválida', { topic, dataId, hasSignature: !!input.signature, hasRequestId: !!input.requestId })
+    // Registra a recusa para diagnóstico (a assinatura é um HMAC, não revela o segredo).
+    await db.insert(t.webhookEvents).values({
+      provider: 'mercadopago-rejected',
+      eventKey: `${input.requestId ?? 'sem-request-id'}:${Date.now()}`,
+      topic,
+      resourceId: dataId,
+      payload: JSON.stringify({ query: safeQuery.toString(), body, signature: input.signature, requestId: input.requestId }),
+      error: 'invalid_signature',
+    })
     return { status: 401 as const, result: 'invalid_signature' }
   }
   if (!secret && process.env.VERCEL_ENV === 'production') {
@@ -176,7 +190,7 @@ export async function handleMpWebhook(db: Db, input: WebhookInput, { secret = pr
   const eventKey = input.requestId ?? `${topic}:${dataId}:${String(body.action ?? '')}`
   const inserted = await db
     .insert(t.webhookEvents)
-    .values({ provider: 'mercadopago', eventKey, topic, resourceId: dataId, payload: JSON.stringify({ query: input.query.toString(), body }) })
+    .values({ provider: 'mercadopago', eventKey, topic, resourceId: dataId, payload })
     .onConflictDoNothing()
     .returning({ id: t.webhookEvents.id })
   const event = inserted[0]

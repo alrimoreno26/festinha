@@ -2,8 +2,19 @@ import { devOnly, route } from '@/lib/server/http'
 import { getStorage, r2Config } from '@/lib/server/storage'
 
 /**
+ * Mensagens de erro podem conter valores das credenciais (ex.: o Account ID vira parte do domínio;
+ * se um segredo for colado no lugar dele, ele aparece no erro). Remove qualquer valor configurado
+ * e qualquer sequência longa com cara de chave.
+ */
+function redact(message: string, cfg: ReturnType<typeof r2Config>) {
+  let out = message
+  for (const value of [cfg.accountId, cfg.accessKeyId, cfg.secretAccessKey]) if (value) out = out.split(value).join('[oculto]')
+  return out.replace(/[A-Za-z0-9+/_-]{20,}/g, '[oculto]')
+}
+
+/**
  * Diagnóstico do R2 (só no modo de simulação): confere o formato das credenciais sem revelá-las
- * e tenta listar o bucket, devolvendo o erro exato se falhar.
+ * e tenta listar o bucket, devolvendo o erro (sem valores sensíveis) se falhar.
  */
 export const GET = route(async () => {
   devOnly()
@@ -32,7 +43,7 @@ export const GET = route(async () => {
     list = { ok: true, objects: count }
   } catch (err) {
     const e = err as { name?: string; message?: string; Code?: string; $metadata?: { httpStatusCode?: number } }
-    list = { ok: false, name: e.name, code: e.Code, httpStatus: e.$metadata?.httpStatusCode, message: e.message }
+    list = { ok: false, name: e.name, code: e.Code, httpStatus: e.$metadata?.httpStatusCode, message: redact(e.message ?? '', cfg) }
   }
 
   return { driver: storage.kind, runtime: { node: process.version, region: process.env.VERCEL_REGION ?? null }, credentials, list }

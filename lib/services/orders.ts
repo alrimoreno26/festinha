@@ -18,6 +18,12 @@ export const ordersService = {
   /** Reembolso. Revoga o acesso. */
   refund: (id: string) => api<null>('POST', `/api/admin/orders/${id}/refund`),
 
+  /** Consulta os pagamentos do pedido no Mercado Pago e aplica o estado atual. */
+  checkPayment: (id: string) => api<{ outcome: string }>('POST', `/api/admin/orders/${id}/check`),
+
+  /** Revisa no Mercado Pago todos os pedidos pendentes recentes. */
+  reconcilePending: () => api<{ checked: number; updated: number }>('POST', '/api/admin/orders/reconcile'),
+
   /** Só no modo de simulação: equivale ao webhook de chargeback. */
   simulateChargeback: (id: string) => api<null>('POST', `/api/dev/orders/${id}/chargeback`),
 }

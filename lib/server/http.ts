@@ -132,4 +132,24 @@ export function devOnly() {
   if (!devToolsEnabled()) throw new ServiceError('NOT_FOUND', 'Não encontrado.')
 }
 
+/**
+ * Endereços públicos para o Mercado Pago:
+ * - origin: para onde o cliente volta (APP_URL, ou a origem da própria requisição);
+ * - notificationUrl: onde o MP avisa os pagamentos. MP_NOTIFICATION_URL tem prioridade (ex.: túnel em
+ *   desenvolvimento). Em localhost sem túnel fica null (o MP não alcança localhost; vale a URL do painel).
+ *   Com a proteção de previews da Vercel ativa, acrescenta o token de bypass só nesta URL.
+ */
+export function publicUrls(req: NextRequest) {
+  const origin = (process.env.APP_URL?.trim() || req.nextUrl.origin).replace(/\/+$/, '')
+  let notificationUrl = process.env.MP_NOTIFICATION_URL?.trim() || null
+  if (!notificationUrl && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) notificationUrl = `${origin}/api/webhooks/mercadopago`
+  const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+  if (notificationUrl && bypass && !process.env.MP_NOTIFICATION_URL) {
+    const url = new URL(notificationUrl)
+    url.searchParams.set('x-vercel-protection-bypass', bypass)
+    notificationUrl = url.toString()
+  }
+  return { origin, notificationUrl }
+}
+
 export { db }

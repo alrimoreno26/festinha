@@ -1,10 +1,10 @@
-// Fluxo público de compra. Fase 4: createOrder devolve o link do Mercado Pago
-// e `pay` deixa de existir (o pagamento acontece lá e a confirmação chega pelo webhook).
+// Fluxo público de compra. Com Mercado Pago, createOrder devolve o link do checkout do MP
+// (a confirmação chega pelo webhook). Sem MP, o link é o do simulador e `pay` faz o papel do MP.
 
 import type { CheckoutInput, PublicOrder } from '@/lib/contracts'
 import { getDevSettings } from '@/lib/dev/settings'
 import type { PaymentMethod } from '@/lib/types'
-import { api } from './http'
+import { api, qs } from './http'
 
 export { checkoutSchema } from '@/lib/contracts'
 export type { CheckoutInput, PublicOrder } from '@/lib/contracts'
@@ -14,7 +14,8 @@ type CheckoutStart = { orderId: string; checkoutUrl: string }
 export const checkoutService = {
   createOrder: (input: CheckoutInput) => api<CheckoutStart>('POST', '/api/checkout', input),
 
-  getOrder: (orderId: string) => api<PublicOrder>('GET', `/api/orders/${orderId}`),
+  /** `paymentId`: o Mercado Pago devolve o cliente com ?payment_id=…; o servidor consulta o MP na hora. */
+  getOrder: (orderId: string, paymentId?: string | null) => api<PublicOrder>('GET', `/api/orders/${orderId}${qs({ payment_id: paymentId })}`),
 
   /** Simulador de pagamento: o resultado vem da DevToolbar. */
   pay: (orderId: string, method: PaymentMethod) => {

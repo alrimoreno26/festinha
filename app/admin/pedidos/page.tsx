@@ -1,12 +1,12 @@
 'use client'
 
-import { Card, EmptyState, Input, ORDER_STATUS, OrderStatusBadge, PageHeader, PageLoader, PAYMENT_METHOD, QueryState, Select, Table, TBody, TD, TH, THead, TR } from '@/components/ui'
+import { Button, Card, EmptyState, Input, ORDER_STATUS, OrderStatusBadge, PageHeader, PageLoader, PAYMENT_METHOD, QueryState, Select, Table, TBody, TD, TH, THead, TR, useToast } from '@/components/ui'
 import { formatBRL, formatDateTime } from '@/lib/format'
-import { ordersService, qk } from '@/lib/services'
+import { errorMessage, ordersService, qk } from '@/lib/services'
 import type { OrderFilters } from '@/lib/services/orders'
 import type { OrderStatus } from '@/lib/types'
-import { useQuery } from '@tanstack/react-query'
-import { ReceiptText, Search } from 'lucide-react'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { ReceiptText, RefreshCw, Search } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 
@@ -40,13 +40,28 @@ function Pedidos() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debounced])
 
+  const toast = useToast()
+  const reconcile = useMutation({
+    mutationFn: ordersService.reconcilePending,
+    onSuccess: ({ checked, updated }) =>
+      toast.success(checked ? `${checked} pendentes verificados no Mercado Pago; ${updated} atualizados.` : 'Nenhum pedido pendente para verificar.'),
+    onError: (err) => toast.error(errorMessage(err)),
+  })
   const filters: OrderFilters = { status, days, search: debounced }
   const query = useQuery({ queryKey: qk.orders(filters), queryFn: () => ordersService.list(filters), placeholderData: (prev) => prev })
   const total = query.data?.filter((o) => o.status === 'approved').reduce((s, o) => s + o.amountCents, 0) ?? 0
 
   return (
     <>
-      <PageHeader title="Pedidos" description="Todos os pedidos, pagos ou não." />
+      <PageHeader
+        title="Pedidos"
+        description="Todos os pedidos, pagos ou não."
+        actions={
+          <Button variant="ghost" onClick={() => reconcile.mutate()} loading={reconcile.isPending}>
+            <RefreshCw size={16} /> Verificar pendentes no Mercado Pago
+          </Button>
+        }
+      />
 
       <div className="mb-4 grid gap-3 sm:grid-cols-[1fr_180px_160px]">
         <div className="relative">

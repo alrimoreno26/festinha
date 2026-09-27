@@ -128,15 +128,41 @@ function PendingPix({ order }: { order: PublicOrder }) {
   )
 }
 
+/** Pagamento iniciado no Mercado Pago e ainda não confirmado (ex.: Pix gerado e não pago). */
+function PendingMp({ order }: { order: PublicOrder }) {
+  return (
+    <Shell>
+      <StatusIcon tone="warning">
+        <Spinner className="h-7 w-7" />
+      </StatusIcon>
+      <h1 className="text-2xl font-bold text-gray-900">Aguardando o pagamento</h1>
+      <p className="mt-2 text-gray-600">
+        {order.method === 'pix'
+          ? 'Assim que o Pix for pago, liberamos seu kit e avisamos por email. Esta página atualiza sozinha.'
+          : 'Estamos esperando a confirmação do Mercado Pago. Esta página atualiza sozinha.'}
+      </p>
+      <OrderLine order={order} />
+      <div className="mt-6 grid gap-2">
+        {order.resumeUrl && (
+          <ButtonLink href={order.resumeUrl} size="lg">
+            Voltar para o pagamento
+          </ButtonLink>
+        )}
+        <p className="text-xs text-gray-500">Já pagou? A confirmação costuma levar poucos segundos.</p>
+      </div>
+    </Shell>
+  )
+}
+
 function RetryButton({ order }: { order: PublicOrder }) {
   const router = useRouter()
   const retry = useMutation({
     mutationFn: () => checkoutService.retry(order.id),
-    onSuccess: ({ checkoutUrl }) => router.push(checkoutUrl),
+    onSuccess: ({ checkoutUrl }) => (/^https?:\/\//.test(checkoutUrl) ? window.location.assign(checkoutUrl) : router.push(checkoutUrl)),
   })
   return (
     <>
-      <Button size="lg" onClick={() => retry.mutate()} loading={retry.isPending}>
+      <Button size="lg" onClick={() => retry.mutate()} loading={retry.isPending || retry.isSuccess}>
         Tentar novamente
       </Button>
       {retry.isError && <p className="text-sm text-red-600">{errorMessage(retry.error)}</p>}
@@ -202,10 +228,13 @@ function Cancelled({ order }: { order: PublicOrder }) {
 }
 
 function Retorno() {
-  const orderId = useSearchParams().get('pedido')
+  const params = useSearchParams()
+  const orderId = params.get('pedido')
+  // O Mercado Pago devolve o cliente com ?payment_id=… (ou collection_id): o servidor consulta o pagamento na hora.
+  const paymentId = params.get('payment_id') ?? params.get('collection_id')
   const query = useQuery({
     queryKey: qk.publicOrder(orderId ?? ''),
-    queryFn: () => checkoutService.getOrder(orderId!),
+    queryFn: () => checkoutService.getOrder(orderId!, paymentId),
     enabled: !!orderId,
     // Enquanto pendente, consulta de novo a cada 3 s (no real: o webhook atualiza o pedido).
     refetchInterval: (q) => (q.state.data?.status === 'pending' ? 3000 : false),
@@ -232,6 +261,7 @@ function Retorno() {
     case 'approved':
       return <Approved order={order} />
     case 'pending':
+      if (order.provider === 'mercadopago') return <PendingMp order={order} />
       return order.method === 'pix' ? (
         <PendingPix order={order} />
       ) : (

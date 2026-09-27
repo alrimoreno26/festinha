@@ -162,10 +162,14 @@ export const orders = pgTable(
     method: paymentMethodEnum('method').notNull().default('pix'),
     createdAt: createdAt(),
     paidAt: tstz('paid_at'),
-    // Mercado Pago (fase 4)
+    // Mercado Pago
     mpPreferenceId: text('mp_preference_id'),
+    /** Link do checkout do MP (para o cliente voltar a um pagamento pendente). */
+    mpCheckoutUrl: text('mp_checkout_url'),
     mpPaymentId: text('mp_payment_id').unique(),
-    /** Só no simulador: quando um Pix pendente deve ser "confirmado". Sai na fase 4. */
+    /** Último status/detalhe informado pelo MP (ex.: "rejected/cc_rejected_insufficient_amount"), para suporte. */
+    mpStatus: text('mp_status'),
+    /** Só no simulador (sem MP configurado): quando um Pix pendente deve ser "confirmado". */
     simulatedApproveAt: tstz('simulated_approve_at'),
   },
   (t) => [
@@ -226,4 +230,25 @@ export const emailOutbox = pgTable(
     providerId: text('provider_id'),
   },
   (t) => [index('email_outbox_created_idx').on(t.createdAt)],
+)
+
+/**
+ * Avisos recebidos dos webhooks (Mercado Pago). Servem para não processar o mesmo aviso duas vezes
+ * e para investigar problemas ("o MP avisou? o que respondemos?").
+ */
+export const webhookEvents = pgTable(
+  'webhook_events',
+  {
+    id: serial('id').primaryKey(),
+    provider: text('provider').notNull(),
+    /** Identificador único do aviso (x-request-id do MP). */
+    eventKey: text('event_key').notNull(),
+    topic: text('topic'),
+    resourceId: text('resource_id'),
+    payload: text('payload').notNull(),
+    receivedAt: createdAt(),
+    processedAt: tstz('processed_at'),
+    error: text('error'),
+  },
+  (t) => [uniqueIndex('webhook_events_provider_key_uq').on(t.provider, t.eventKey), index('webhook_events_resource_idx').on(t.resourceId)],
 )

@@ -1,6 +1,7 @@
 // Fluxo público de compra.
-// Fase 4: createOrder também cria a preferência no Mercado Pago e devolve o `init_point`;
-// a confirmação chega pelo webhook. Até lá, `simulatePayment` faz o papel do Mercado Pago.
+// Com Mercado Pago: cria o pedido + a preferência (Checkout Pro) e manda o cliente para a página do MP;
+// a confirmação chega pelo webhook (e pela consulta na volta para o site).
+// Sem Mercado Pago: a página /simulador-mp faz o papel do MP.
 
 import { checkoutSchema, zodDetails, type CheckoutInput, type PublicOrder } from '@/lib/contracts'
 import { ServiceError } from '@/lib/services/errors'
@@ -9,11 +10,21 @@ import { and, eq, isNotNull, lte } from 'drizzle-orm'
 import * as t from '../db/schema'
 import type { Db } from '../db/types'
 import { newId } from '../ids'
+import { getPaymentGateway, type PaymentGateway } from '../payments'
 import { approveOrder } from './fulfillment'
+import { applyPayment } from './payments'
 
 const PIX_TTL_MS = 30 * 60 * 1000
 
 export type SimulatedOutcome = 'approved' | 'pending' | 'rejected'
+
+/** Endereços públicos do site, resolvidos pela rota a partir da requisição (ou de APP_URL). */
+export interface CheckoutUrls {
+  /** Origem do site para onde o cliente volta, ex.: https://festinhas.com.br */
+  origin: string
+  /** URL pública do webhook (em desenvolvimento, a de um túnel). null = usar a configurada no painel do MP. */
+  notificationUrl: string | null
+}
 
 async function toPublicOrder(db: Db, orderId: string): Promise<PublicOrder> {
   const [row] = await db
@@ -24,6 +35,8 @@ async function toPublicOrder(db: Db, orderId: string): Promise<PublicOrder> {
   if (!row) throw new ServiceError('NOT_FOUND', 'Pedido não encontrado.')
   const { order, pkg } = row
   const [user] = await db.select({ createdAt: t.users.createdAt }).from(t.users).where(eq(t.users.email, order.email))
+  const viaMp = !!order.mpPreferenceId
+  const pending = order.status === 'pending'
 
   return {
     id: order.id,
@@ -35,9 +48,10 @@ async function toPublicOrder(db: Db, orderId: string): Promise<PublicOrder> {
     packageSlug: pkg?.slug ?? '',
     createdAt: order.createdAt.toISOString(),
     existingAccount: !!user && user.createdAt < order.createdAt,
-    // QR fictício até a fase 4 (lá vem de point_of_interaction.transaction_data do Mercado Pago).
+    provider: viaMp ? 'mercadopago' : 'simulator',
+    resumeUrl: viaMp && pending ? order.mpCheckoutUrl : null,
     pix:
-      order.method === 'pix' && order.status === 'pending'
+      !viaMp && order.method === 'pix' && pending
         ? {
             copyPaste: `00020126580014BR.GOV.BCB.PIX0136festinhas-${order.id}5204000053039865406${(order.amountCents / 100).toFixed(2)}5802BR`,
             expiresAt: new Date(order.createdAt.getTime() + PIX_TTL_MS).toISOString(),
@@ -46,7 +60,35 @@ async function toPublicOrder(db: Db, orderId: string): Promise<PublicOrder> {
   }
 }
 
-export async function createOrder(db: Db, input: CheckoutInput) {
+/** Cria o pedido pendente e, com Mercado Pago, a preferência de pagamento. */
+async function openOrder(
+  db: Db,
+  data: { name: string; email: string; phone: string; method?: PaymentMethod },
+  pkg: typeof t.packages.$inferSelect,
+  urls: CheckoutUrls | null,
+  gateway: PaymentGateway,
+) {
+  const id = newId('ord')
+  // O preço vem sempre do banco, nunca do navegador.
+  await db.insert(t.orders).values({ id, name: data.name, email: data.email, phone: data.phone, packageId: pkg.id, amountCents: pkg.priceCents, method: data.method })
+
+  if (gateway.kind === 'simulator' || !urls) return { orderId: id, checkoutUrl: `/simulador-mp/${id}` }
+
+  const checkout = await gateway.createCheckout({
+    orderId: id,
+    title: pkg.title,
+    packageId: pkg.id,
+    amountCents: pkg.priceCents,
+    payer: { name: data.name, email: data.email },
+    returnUrl: `${urls.origin}/checkout/retorno?pedido=${id}`,
+    notificationUrl: urls.notificationUrl,
+  })
+  if (!checkout) throw new ServiceError('NETWORK', 'Não foi possível iniciar o pagamento. Tente novamente.')
+  await db.update(t.orders).set({ mpPreferenceId: checkout.preferenceId, mpCheckoutUrl: checkout.checkoutUrl }).where(eq(t.orders.id, id))
+  return { orderId: id, checkoutUrl: checkout.checkoutUrl }
+}
+
+export async function createOrder(db: Db, input: CheckoutInput, urls: CheckoutUrls | null = null, gateway: PaymentGateway = getPaymentGateway()) {
   const parsed = checkoutSchema.safeParse(input)
   if (!parsed.success) throw new ServiceError('VALIDATION', 'Revise os campos destacados.', zodDetails(parsed.error))
 
@@ -55,22 +97,31 @@ export async function createOrder(db: Db, input: CheckoutInput) {
     .from(t.packages)
     .where(and(eq(t.packages.slug, parsed.data.packageSlug), eq(t.packages.active, true)))
   if (!pkg) throw new ServiceError('NOT_FOUND', 'Este pacote não está mais disponível.')
-
-  const id = newId('ord')
-  await db.insert(t.orders).values({
-    id,
-    name: parsed.data.name,
-    email: parsed.data.email,
-    phone: parsed.data.phone,
-    packageId: pkg.id,
-    // O preço vem sempre do banco, nunca do navegador.
-    amountCents: pkg.priceCents,
-  })
-  return { orderId: id, checkoutUrl: `/simulador-mp/${id}` }
+  return openOrder(db, parsed.data, pkg, urls, gateway)
 }
 
-/** Status público de um pedido (quem tem o ID do pedido pode consultar, como no retorno do Mercado Pago). */
-export async function getOrder(db: Db, orderId: string) {
+/**
+ * Status público de um pedido (quem tem o ID do pedido pode consultar, como no retorno do Mercado Pago).
+ * `paymentId`: o MP devolve o cliente com ?payment_id=…; consultamos na hora para não depender só do webhook.
+ */
+export async function getOrder(db: Db, orderId: string, { paymentId }: { paymentId?: string | null } = {}, gateway: PaymentGateway = getPaymentGateway()) {
+  const [order] = await db
+    .select({ status: t.orders.status, viaMp: t.orders.mpPreferenceId, simulatedApproveAt: t.orders.simulatedApproveAt })
+    .from(t.orders)
+    .where(eq(t.orders.id, orderId))
+  if (!order) throw new ServiceError('NOT_FOUND', 'Pedido não encontrado.')
+
+  if (order.status === 'pending' && order.viaMp && paymentId && gateway.kind === 'mercadopago') {
+    try {
+      const payment = await gateway.getPayment(paymentId)
+      // Só aplica se o pagamento é mesmo deste pedido.
+      if (payment?.externalReference === orderId) await applyPayment(db, payment)
+    } catch (err) {
+      // Sem problema: o webhook e a conciliação resolvem depois.
+      console.error('[retorno] falha ao consultar pagamento no MP', orderId, err)
+    }
+  }
+
   // Simulador: confirma Pix pendentes cujo prazo simulado já passou.
   const [due] = await db
     .select({ id: t.orders.id })
@@ -91,6 +142,7 @@ export async function simulatePayment(
   await db.transaction(async (tx) => {
     const [order] = await tx.select().from(t.orders).where(eq(t.orders.id, orderId)).for('update')
     if (!order) throw new ServiceError('NOT_FOUND', 'Pedido não encontrado.')
+    if (order.mpPreferenceId) throw new ServiceError('CONFLICT', 'Este pedido é pago pelo Mercado Pago, não pelo simulador.')
     if (order.status !== 'pending') return
 
     if (outcome === 'rejected') {
@@ -107,20 +159,10 @@ export async function simulatePayment(
 }
 
 /** Tentar de novo após recusa/expiração: novo pedido com os mesmos dados (e o preço atual). */
-export async function retry(db: Db, orderId: string) {
+export async function retry(db: Db, orderId: string, urls: CheckoutUrls | null = null, gateway: PaymentGateway = getPaymentGateway()) {
   const [old] = await db.select().from(t.orders).where(eq(t.orders.id, orderId))
   if (!old) throw new ServiceError('NOT_FOUND', 'Pedido não encontrado.')
   const [pkg] = await db.select().from(t.packages).where(and(eq(t.packages.id, old.packageId), eq(t.packages.active, true)))
   if (!pkg) throw new ServiceError('NOT_FOUND', 'Este pacote não está mais disponível.')
-  const id = newId('ord')
-  await db.insert(t.orders).values({
-    id,
-    name: old.name,
-    email: old.email,
-    phone: old.phone,
-    packageId: pkg.id,
-    amountCents: pkg.priceCents,
-    method: old.method,
-  })
-  return { orderId: id, checkoutUrl: `/simulador-mp/${id}` }
+  return openOrder(db, { name: old.name, email: old.email, phone: old.phone, method: old.method }, pkg, urls, gateway)
 }

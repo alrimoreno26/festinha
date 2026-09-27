@@ -6,7 +6,7 @@ import { formatBRL, formatDateTime } from '@/lib/format'
 import { devToolsEnabled } from '@/lib/dev/settings'
 import { errorMessage, ordersService, qk } from '@/lib/services'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { ChevronLeft, FlaskConical, MessageCircle } from 'lucide-react'
+import { ChevronLeft, FlaskConical, MessageCircle, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 import { useState, type ReactNode } from 'react'
 
@@ -37,10 +37,24 @@ export default function PedidoPage({ params }: { params: { id: string } }) {
   const approve = useMutation({ mutationFn: () => ordersService.approve(params.id), onSuccess: onDone('Pagamento confirmado e acesso liberado.'), onError: onFail })
   const refund = useMutation({ mutationFn: () => ordersService.refund(params.id), onSuccess: onDone('Pedido reembolsado e acesso revogado.'), onError: onFail })
   const chargeback = useMutation({ mutationFn: () => ordersService.simulateChargeback(params.id), onSuccess: onDone('Chargeback simulado.'), onError: onFail })
+  const check = useMutation({
+    mutationFn: () => ordersService.checkPayment(params.id),
+    onSuccess: ({ outcome }) =>
+      toast.success(
+        {
+          approved: 'Pagamento aprovado no Mercado Pago: acesso liberado.',
+          pending: 'O pagamento ainda está pendente no Mercado Pago.',
+          rejected: 'O Mercado Pago recusou o pagamento.',
+          refunded: 'O pagamento foi estornado no Mercado Pago: acesso revogado.',
+          charged_back: 'O pagamento foi contestado (chargeback): acesso revogado.',
+        }[outcome] ?? 'Nenhuma mudança: o Mercado Pago não tem pagamento novo para este pedido.',
+      ),
+    onError: onFail,
+  })
 
   return (
     <QueryState query={query}>
-      {({ order, package: pkg, customer, entitlement }) => (
+      {({ order, package: pkg, customer, entitlement, payment }) => (
         <>
           <PageHeader
             back={
@@ -56,7 +70,16 @@ export default function PedidoPage({ params }: { params: { id: string } }) {
             description={`Criado em ${formatDateTime(order.createdAt)}`}
             actions={
               <>
-                {order.status === 'pending' && <Button onClick={() => setConfirm('approve')}>Confirmar pagamento</Button>}
+                {payment.provider === 'mercadopago' && (
+                  <Button variant="ghost" onClick={() => check.mutate()} loading={check.isPending}>
+                    <RefreshCw size={16} /> Verificar no Mercado Pago
+                  </Button>
+                )}
+                {order.status === 'pending' && (
+                  <Button variant={payment.provider === 'mercadopago' ? 'outline' : 'primary'} onClick={() => setConfirm('approve')}>
+                    Confirmar manualmente
+                  </Button>
+                )}
                 {order.status === 'approved' && (
                   <Button variant="outline" onClick={() => setConfirm('refund')}>
                     Reembolsar
@@ -75,11 +98,18 @@ export default function PedidoPage({ params }: { params: { id: string } }) {
                 </Row>
                 <Row label="Método">{PAYMENT_METHOD[order.method]}</Row>
                 <Row label="Pago em">{order.paidAt ? formatDateTime(order.paidAt) : '—'}</Row>
+                <Row label="Processador">{payment.provider === 'mercadopago' ? 'Mercado Pago' : 'Simulador'}</Row>
+                {payment.provider === 'mercadopago' && (
+                  <>
+                    <Row label="ID no Mercado Pago">{payment.mpPaymentId ? <span className="font-mono text-xs">{payment.mpPaymentId}</span> : '— (ainda sem pagamento)'}</Row>
+                    <Row label="Status no MP">{payment.mpStatus ? <span className="font-mono text-xs">{payment.mpStatus}</span> : '—'}</Row>
+                  </>
+                )}
                 <Row label="Pacote">{pkg ? <Link href={`/admin/pacotes/${pkg.id}`} className="text-brand-teal hover:underline">{pkg.title}</Link> : '—'}</Row>
               </dl>
               {order.status === 'pending' && (
                 <p className="mt-3 rounded-2xl bg-amber-50 p-3 text-xs text-amber-800">
-                  Normalmente o Mercado Pago confirma sozinho. Use &quot;Confirmar pagamento&quot; só se você já verificou o recebimento no painel do Mercado Pago.
+                  Normalmente o Mercado Pago confirma sozinho. Se o cliente diz que pagou, use &quot;Verificar no Mercado Pago&quot;. &quot;Confirmar manualmente&quot; só para pagamentos recebidos por fora (ex.: Pix direto na sua conta).
                 </p>
               )}
             </Card>

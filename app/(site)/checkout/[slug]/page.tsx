@@ -32,7 +32,8 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
 
   const order = useMutation({
     mutationFn: () => checkoutService.createOrder({ packageSlug: params.slug, ...form }),
-    onSuccess: ({ checkoutUrl }) => router.push(checkoutUrl),
+    // Mercado Pago: página externa (navegação completa). Simulador: rota interna.
+    onSuccess: ({ checkoutUrl }) => (/^https?:\/\//.test(checkoutUrl) ? window.location.assign(checkoutUrl) : router.push(checkoutUrl)),
   })
 
   const fieldErrors = order.error instanceof ServiceError && order.error.code === 'VALIDATION' ? order.error.details ?? {} : {}
@@ -112,7 +113,7 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
               </p>
             )}
 
-            <Button type="submit" size="lg" className="w-full" loading={order.isPending}>
+            <Button type="submit" size="lg" className="w-full" loading={order.isPending || order.isSuccess}>
               Ir para o pagamento
             </Button>
             <p className="flex items-center justify-center gap-1.5 text-xs text-gray-500">

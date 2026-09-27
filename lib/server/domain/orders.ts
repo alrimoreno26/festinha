@@ -6,6 +6,7 @@ import * as t from '../db/schema'
 import type { Db } from '../db/types'
 import { requireAdmin, type Actor } from '../guards'
 import { toEntitlement, toOrder, toPackage, toUser } from '../mappers'
+import { getPaymentGateway, type PaymentGateway } from '../payments'
 import { approveOrder, reverseOrder } from './fulfillment'
 
 const DAY = 24 * 60 * 60 * 1000
@@ -40,6 +41,7 @@ export async function get(db: Db, actor: Actor, id: string): Promise<AdminOrderD
   ])
   const entitlement = ent ? toEntitlement(ent) : null
   return {
+    payment: { provider: order.mpPreferenceId ? 'mercadopago' : 'simulator', mpPaymentId: order.mpPaymentId, mpStatus: order.mpStatus },
     order: toOrder(order),
     // Os arquivos do pacote não são necessários nesta tela.
     package: pkg ? toPackage(pkg, []) : null,
@@ -59,14 +61,31 @@ export async function approve(db: Db, actor: Actor, id: string) {
   })
 }
 
-/** Reembolso. Na fase 4 também chama POST /v1/payments/{id}/refunds no Mercado Pago. Revoga o acesso. */
-export async function refund(db: Db, actor: Actor, id: string) {
+/**
+ * Reembolso total. Pedido pago pelo Mercado Pago: pede o estorno ao MP primeiro (se o MP recusar,
+ * nada muda aqui). Depois revoga o acesso. O webhook "refunded" que o MP manda em seguida é ignorado
+ * por já estar aplicado.
+ */
+export async function refund(db: Db, actor: Actor, id: string, gateway: PaymentGateway = getPaymentGateway()) {
   requireAdmin(actor)
+  const [order] = await db.select().from(t.orders).where(eq(t.orders.id, id))
+  if (!order) throw new ServiceError('NOT_FOUND', 'Pedido não encontrado.')
+  if (order.status !== 'approved') throw new ServiceError('CONFLICT', 'Só pedidos aprovados podem ser reembolsados.')
+
+  if (order.mpPaymentId) {
+    if (gateway.kind !== 'mercadopago') throw new ServiceError('CONFLICT', 'Mercado Pago não configurado: não é possível estornar este pagamento.')
+    try {
+      await gateway.refund(order.mpPaymentId)
+    } catch (err) {
+      console.error('[reembolso] o Mercado Pago recusou o estorno', id, err)
+      throw new ServiceError('CONFLICT', 'O Mercado Pago não aceitou o estorno. Verifique o pagamento no painel do Mercado Pago.')
+    }
+  }
+
   await db.transaction(async (tx) => {
-    const [order] = await tx.select({ status: t.orders.status }).from(t.orders).where(eq(t.orders.id, id)).for('update')
-    if (!order) throw new ServiceError('NOT_FOUND', 'Pedido não encontrado.')
-    if (order.status !== 'approved') throw new ServiceError('CONFLICT', 'Só pedidos aprovados podem ser reembolsados.')
-    await reverseOrder(tx, id, 'refunded')
+    const [locked] = await tx.select({ status: t.orders.status }).from(t.orders).where(eq(t.orders.id, id)).for('update')
+    // O webhook pode ter chegado antes e já revogado.
+    if (locked?.status === 'approved') await reverseOrder(tx, id, 'refunded')
   })
 }
 

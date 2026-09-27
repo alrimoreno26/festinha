@@ -86,7 +86,11 @@ export interface PublicOrder {
   createdAt: string
   /** Se o email já tinha conta antes desta compra. */
   existingAccount: boolean
+  /** Só no simulador: QR/código fictício. No Mercado Pago o Pix é exibido na página do MP. */
   pix: { copyPaste: string; expiresAt: string } | null
+  provider: 'mercadopago' | 'simulator'
+  /** Pagamento pendente no MP: link para o cliente voltar à página de pagamento. */
+  resumeUrl: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -109,6 +113,8 @@ export interface AdminOrderDetail {
   package: Package | null
   customer: User | null
   entitlement: (Entitlement & { status: EntitlementStatus }) | null
+  /** Como o pedido é pago e o que o Mercado Pago informou por último (para suporte). */
+  payment: { provider: 'mercadopago' | 'simulator'; mpPaymentId: string | null; mpStatus: string | null }
 }
 
 // ---------------------------------------------------------------------------

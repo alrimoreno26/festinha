@@ -19,7 +19,7 @@ import {
 } from '@/components/ui'
 import { formatBytes, formatDate } from '@/lib/format'
 import { errorMessage, filesService, qk } from '@/lib/services'
-import { MAX_UPLOAD_BYTES, type FolderListing } from '@/lib/services/files'
+import { MAX_UPLOAD_BYTES, type FolderListing, type SyncResult } from '@/lib/services/files'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, Folder, FolderPlus, Home, Pencil, RefreshCw, RotateCcw, Trash2, Upload, X } from 'lucide-react'
 import Link from 'next/link'
@@ -134,15 +134,26 @@ function Explorer() {
     },
   })
 
+  const [pruneOffer, setPruneOffer] = useState<SyncResult | null>(null)
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
   const sync = useMutation({
-    mutationFn: filesService.syncFromBucket,
-    onSuccess: ({ added, alreadyRegistered, missingInBucket }) => {
+    mutationFn: (prune: boolean) => filesService.syncFromBucket(prune),
+    onSuccess: (r, prune) => {
+      if (prune) {
+        setPruneOffer(null)
+        toast.success(
+          `Pronto: o painel agora mostra só o que está no bucket (${plural(r.removed, 'registro removido', 'registros removidos')}).` +
+            (r.deactivatedPackages.length ? ` Ocultados do catálogo por ficarem sem arquivos: ${r.deactivatedPackages.join(', ')}.` : ''),
+        )
+        return
+      }
+      const news = r.added + r.addedFolders
       toast.success(
-        added
-          ? `${added} ${added === 1 ? 'arquivo importado' : 'arquivos importados'} do bucket (${alreadyRegistered} já estavam registrados).`
-          : `Tudo em dia: nenhum arquivo novo no bucket (${alreadyRegistered} registrados).`,
+        news
+          ? `Importados do bucket: ${plural(r.added, 'arquivo', 'arquivos')} e ${plural(r.addedFolders, 'pasta', 'pastas')}.`
+          : `Tudo em dia com o bucket (${plural(r.alreadyRegistered, 'arquivo', 'arquivos')}).`,
       )
-      if (missingInBucket) toast.error(`${missingInBucket} ${missingInBucket === 1 ? 'arquivo registrado não existe' : 'arquivos registrados não existem'} mais no bucket.`)
+      if (r.missingInBucket) setPruneOffer(r)
     },
     onError: (err) => toast.error(errorMessage(err)),
   })
@@ -168,7 +179,7 @@ function Explorer() {
         actions={
           <>
             {storage?.kind === 'r2' && (
-              <Button variant="ghost" onClick={() => sync.mutate()} loading={sync.isPending}>
+              <Button variant="ghost" onClick={() => sync.mutate(false)} loading={sync.isPending && !pruneOffer}>
                 <RefreshCw size={16} /> Sincronizar com o bucket
               </Button>
             )}
@@ -381,6 +392,27 @@ function Explorer() {
           )
         }
         confirmLabel="Excluir"
+      />
+      <ConfirmDialog
+        open={!!pruneOffer}
+        onClose={() => setPruneOffer(null)}
+        onConfirm={() => sync.mutate(true)}
+        loading={sync.isPending}
+        title={pruneOffer ? `${plural(pruneOffer.missingInBucket, 'arquivo não existe', 'arquivos não existem')} no bucket` : ''}
+        description={
+          pruneOffer && (
+            <>
+              Estão registrados no painel, mas não no R2 — os clientes não conseguiriam baixá-los. Remover os registros deixa o painel igual ao bucket
+              {pruneOffer.affectedPackages ? (
+                <>
+                  {' '}e retira esses arquivos de <strong>{plural(pruneOffer.affectedPackages, 'pacote', 'pacotes')}</strong>; pacotes que ficarem sem nenhum arquivo são ocultados do catálogo
+                </>
+              ) : null}
+              . Nada é apagado do bucket.
+            </>
+          )
+        }
+        confirmLabel="Remover registros"
       />
       <ConfirmDialog
         open={!!deletingFolder}

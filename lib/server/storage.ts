@@ -23,6 +23,8 @@ export interface Storage {
   head(key: string): Promise<StoredObject | null>
   presignDownload(key: string, filename: string, contentType: string): Promise<string>
   delete(key: string): Promise<void>
+  /** Cria o marcador de pasta (objeto vazio terminando em "/"), como o painel da Cloudflare faz. */
+  putFolder(path: string): Promise<void>
   /** Todos os objetos do bucket (paginado internamente). */
   list(): AsyncIterable<StoredObject>
 }
@@ -70,6 +72,9 @@ function r2Storage(accountId: string, accessKeyId: string, secretAccessKey: stri
     async delete(key) {
       await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }))
     },
+    async putFolder(path) {
+      await client.send(new PutObjectCommand({ Bucket: bucket, Key: `${path.replace(/\/+$/, '')}/`, Body: '' }))
+    },
     async *list() {
       let token: string | undefined
       do {
@@ -91,6 +96,7 @@ export const demoStorage: Storage = {
     return `data:text/plain;charset=utf-8;base64,${Buffer.from(text).toString('base64')}`
   },
   delete: async () => {},
+  putFolder: async () => {},
   async *list() {},
 }
 

@@ -16,11 +16,17 @@ Abre http://localhost:3000
 npm run db:ping       # testa a conexão
 npm run db:generate   # gera migração a partir de lib/server/db/schema.ts
 npm run db:migrate    # aplica migrações pendentes
-npm run db:seed       # APAGA e recria os dados de exemplo (só dev)
+npm run db:seed       # APAGA e recria os dados de exemplo (só dev; com R2 configurado não cria arquivos fictícios)
 npm run db:studio     # abre o Drizzle Studio para ver as tabelas
 npm run admin:create -- --email voce@exemplo.com --name "Seu Nome"   # cria/promove admin (pede a senha)
 ```
 Migrações ficam em `drizzle/` e vão para o git.
+
+## Arquivos (Cloudflare R2)
+Com as variáveis `R2_*` (ver `.env.example`) os arquivos ficam no R2; sem elas, modo demonstração.
+O painel mostra os arquivos **registrados no banco**: o que for enviado pelo painel da Cloudflare aparece
+depois de **Arquivos → Sincronizar com o bucket**, que também oferece remover registros cujo arquivo não
+existe mais no bucket. Pastas criadas/excluídas no painel também são criadas/excluídas no bucket.
 
 ## Testes
 ```bash

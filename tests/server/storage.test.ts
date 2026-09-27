@@ -20,6 +20,9 @@ function fakeBucket(initial: StoredObject[] = []) {
       deleted.push(key)
       objects.delete(key)
     },
+    putFolder: async (path) => {
+      objects.set(`${path}/`, { key: `${path}/`, size: 0 })
+    },
     async *list() {
       yield* objects.values()
     },
@@ -93,28 +96,59 @@ describe('renomear', () => {
 })
 
 describe('sincronizar com o bucket', () => {
-  it('importa objetos novos, ignora marcadores de pasta e avisa registros sem objeto', async () => {
+  const bucketObjects = () => [
+    { key: 'kits/safari/topo-de-bolo.pdf', size: 2_400_000 }, // já registrado
+    { key: 'kits/dinossauro/', size: 0 }, // "pasta" criada no painel
+    { key: 'kits/dinossauro/Topo de Bolo Dino.PDF', size: 1_000_000 },
+    { key: 'kits/dinossauro/moldes.zip', size: 5_000_000 },
+    { key: 'kits/vazia/', size: 0 }, // pasta vazia criada no painel
+  ]
+
+  it('importa arquivos e pastas novos e só informa (sem apagar) os registros sem objeto', async () => {
     const { db, admin } = await createSeededDb()
-    const bucket = fakeBucket([
-      { key: 'kits/safari/topo-de-bolo.pdf', size: 2_400_000 }, // já registrado
-      { key: 'kits/dinossauro/', size: 0 }, // "pasta" criada no painel
-      { key: 'kits/dinossauro/Topo de Bolo Dino.PDF', size: 1_000_000 },
-      { key: 'kits/dinossauro/moldes.zip', size: 5_000_000 },
-    ])
-    const result = await files.syncFromBucket(db, admin, bucket.storage)
-    expect(result).toEqual({ added: 2, alreadyRegistered: 1, missingInBucket: 17 })
+    const bucket = fakeBucket(bucketObjects())
+    const result = await files.syncFromBucket(db, admin, {}, bucket.storage)
+    expect(result).toMatchObject({ added: 2, alreadyRegistered: 1, missingInBucket: 17, removed: 0, deactivatedPackages: [] })
+    expect(result.affectedPackages).toBeGreaterThan(0)
+    expect(result.addedFolders).toBe(2) // kits/dinossauro e kits/vazia
 
     const [dino] = await db.select().from(t.files).where(eq(t.files.key, 'kits/dinossauro/Topo de Bolo Dino.PDF'))
     expect(dino).toMatchObject({ filename: 'Topo de Bolo Dino.PDF', mime: 'application/pdf', size: 1_000_000 })
+    expect((await files.listFolder(db, admin, 'kits', bucket.storage)).folders.map((f) => f.name)).toContain('vazia')
 
     // Rodar de novo não duplica.
-    expect((await files.syncFromBucket(db, admin, bucket.storage)).added).toBe(0)
+    expect(await files.syncFromBucket(db, admin, {}, bucket.storage)).toMatchObject({ added: 0, addedFolders: 0 })
+  })
+
+  it('com prune o banco fica igual ao bucket e pacotes sem arquivos saem do catálogo', async () => {
+    const { db, admin } = await createSeededDb()
+    const bucket = fakeBucket(bucketObjects())
+    const result = await files.syncFromBucket(db, admin, { prune: true }, bucket.storage)
+    expect(result).toMatchObject({ added: 2, removed: 17, missingInBucket: 0 })
+    // Safári ainda tem o topo-de-bolo; os outros ficaram vazios e foram ocultados.
+    expect(result.deactivatedPackages.sort()).toEqual(['Kit Fundo do Mar', 'Kit Futebol', 'Kit Princesas'])
+
+    const keys = (await db.select({ key: t.files.key }).from(t.files)).map((f) => f.key).sort()
+    expect(keys).toEqual(['kits/dinossauro/Topo de Bolo Dino.PDF', 'kits/dinossauro/moldes.zip', 'kits/safari/topo-de-bolo.pdf'])
+    const root = await files.listFolder(db, admin, '', bucket.storage)
+    expect(root.folders.map((f) => f.name)).toEqual(['kits']) // "extras" não existe no bucket
+    const [safari] = await db.select().from(t.packages).where(eq(t.packages.id, 'pkg_safari'))
+    expect(safari.active).toBe(true)
+  })
+
+  it('criar e excluir pasta no painel também cria/apaga no bucket', async () => {
+    const { db, admin } = await createSeededDb()
+    const bucket = fakeBucket()
+    const path = await files.createFolder(db, admin, 'kits', 'Kit Unicórnio 2', bucket.storage)
+    expect(bucket.objects.has(`${path}/`)).toBe(true)
+    await files.removeFolder(db, admin, path, bucket.storage)
+    expect(bucket.deleted).toContain(`${path}/`)
   })
 
   it('no modo demonstração avisa que o R2 não está configurado', async () => {
     const { db, admin } = await createSeededDb()
     const { demoStorage } = await import('@/lib/server/storage')
-    await expect(files.syncFromBucket(db, admin, demoStorage)).rejects.toMatchObject({ code: 'CONFLICT' })
+    await expect(files.syncFromBucket(db, admin, {}, demoStorage)).rejects.toMatchObject({ code: 'CONFLICT' })
   })
 })
 

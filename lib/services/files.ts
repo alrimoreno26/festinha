@@ -55,8 +55,11 @@ export const filesService = {
     return item
   },
 
-  /** Registra no banco o que já está no bucket (ex.: enviado pelo painel da Cloudflare). */
-  syncFromBucket: () => api<SyncResult>('POST', '/api/admin/files/sync'),
+  /**
+   * Reconcilia com o bucket: registra o que está lá (ex.: enviado pelo painel da Cloudflare).
+   * Com `prune`, também remove os registros cujo arquivo não existe mais no bucket.
+   */
+  syncFromBucket: (prune = false) => api<SyncResult>('POST', '/api/admin/files/sync', { prune }),
 
   /** Muda o nome exibido e baixado pelo cliente (o objeto no bucket não é movido). */
   rename: (id: string, filename: string) => api<FileItem>('PATCH', `/api/admin/files/${id}`, { filename }),

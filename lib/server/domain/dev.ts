@@ -6,6 +6,7 @@ import * as t from '../db/schema'
 import type { Db } from '../db/types'
 import { toOutboxEmail, toUser } from '../mappers'
 import { seedDatabase } from '../seed'
+import { getStorage } from '../storage'
 import { createSession } from './auth'
 
 export async function listOutbox(db: Db) {
@@ -36,6 +37,7 @@ export async function counts(db: Db) {
   return row
 }
 
+/** Com R2 configurado não cria arquivos fictícios: os arquivos reais vêm do bucket ("Sincronizar"). */
 export function resetData(db: Db, kind: 'seed' | 'empty') {
-  return seedDatabase(db, { kind })
+  return seedDatabase(db, { kind, withFiles: getStorage().kind === 'demo' })
 }

@@ -12,9 +12,18 @@ const ALL_TABLES = sql`downloads, entitlements, orders, package_files, packages,
 /**
  * Apaga tudo e recria os dados de exemplo.
  * `kind: 'empty'` recria só os usuários (para testar telas vazias continuando logado).
+ * `withFiles: false` não cria os arquivos fictícios (usado quando há um bucket R2 de verdade: os arquivos
+ * vêm do bucket via "Sincronizar"); os pacotes de exemplo ficam como rascunho, sem arquivos.
  * `hash` permite reaproveitar hashes já calculados (os testes usam para ficar rápidos).
  */
-export async function seedDatabase(db: Db, { kind = 'seed', hash = hashPassword }: { kind?: 'seed' | 'empty'; hash?: (p: string) => Promise<string> } = {}) {
+export async function seedDatabase(
+  db: Db,
+  {
+    kind = 'seed',
+    withFiles = true,
+    hash = hashPassword,
+  }: { kind?: 'seed' | 'empty'; withFiles?: boolean; hash?: (p: string) => Promise<string> } = {},
+) {
   const seed = createSeed()
   const date = (iso: string) => new Date(iso)
   const dateOrNull = (iso: string | null | undefined) => (iso ? new Date(iso) : null)
@@ -28,18 +37,27 @@ export async function seedDatabase(db: Db, { kind = 'seed', hash = hashPassword 
     await tx.insert(t.users).values(users)
     if (kind === 'empty') return
 
-    await tx.insert(t.folders).values(seed.folders.map((path) => ({ path })))
-    await tx.insert(t.files).values(seed.files.map((f) => ({ ...f, createdAt: date(f.createdAt) })))
-    await tx
-      .insert(t.packages)
-      .values(seed.packages.map(({ fileIds: _f, createdAt, updatedAt, ...p }) => ({ ...p, createdAt: date(createdAt), updatedAt: date(updatedAt) })))
-    await tx.insert(t.packageFiles).values(seed.packages.flatMap((p) => p.fileIds.map((fileId, position) => ({ packageId: p.id, fileId, position }))))
+    if (withFiles) {
+      await tx.insert(t.folders).values(seed.folders.map((path) => ({ path })))
+      await tx.insert(t.files).values(seed.files.map((f) => ({ ...f, createdAt: date(f.createdAt) })))
+    }
+    await tx.insert(t.packages).values(
+      seed.packages.map(({ fileIds: _f, createdAt, updatedAt, ...p }) => ({
+        ...p,
+        // Sem arquivos o pacote não pode estar no catálogo.
+        active: withFiles && p.active,
+        createdAt: date(createdAt),
+        updatedAt: date(updatedAt),
+      })),
+    )
+    if (withFiles)
+      await tx.insert(t.packageFiles).values(seed.packages.flatMap((p) => p.fileIds.map((fileId, position) => ({ packageId: p.id, fileId, position }))))
     await tx
       .insert(t.orders)
       .values(seed.orders.map(({ createdAt, paidAt, ...o }) => ({ ...o, createdAt: date(createdAt), paidAt: dateOrNull(paidAt) })))
     await tx
       .insert(t.entitlements)
       .values(seed.entitlements.map((e) => ({ ...e, createdAt: date(e.createdAt), expiresAt: dateOrNull(e.expiresAt), revokedAt: dateOrNull(e.revokedAt) })))
-    await tx.insert(t.downloads).values(seed.downloads.map((d) => ({ ...d, createdAt: date(d.createdAt) })))
+    if (withFiles) await tx.insert(t.downloads).values(seed.downloads.map((d) => ({ ...d, createdAt: date(d.createdAt) })))
   })
 }

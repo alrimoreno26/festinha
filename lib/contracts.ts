@@ -44,9 +44,19 @@ export interface UploadTicket {
 }
 
 export interface SyncResult {
+  /** Arquivos do bucket que foram registrados agora. */
   added: number
+  /** Pastas (marcadores) do bucket que foram registradas agora. */
+  addedFolders: number
   alreadyRegistered: number
+  /** Registros cujo arquivo não existe no bucket (depois da limpeza, se `prune`). */
   missingInBucket: number
+  /** Pacotes que contêm arquivos ausentes do bucket. */
+  affectedPackages: number
+  /** Só com `prune`: registros removidos, pastas removidas e pacotes ocultados por ficarem sem arquivos. */
+  removed: number
+  removedFolders: number
+  deactivatedPackages: string[]
 }
 
 // ---------------------------------------------------------------------------

@@ -1,9 +1,9 @@
 // Arquivos dos kits: metadados no banco + objetos no bucket (R2).
 // O navegador envia direto para o R2 com URL assinada; o servidor só registra depois de conferir o objeto.
 
-import { MAX_UPLOAD_BYTES, type FolderListing } from '@/lib/contracts'
+import { MAX_UPLOAD_BYTES, type FolderListing, type SyncResult } from '@/lib/contracts'
 import { ServiceError } from '@/lib/services/errors'
-import { and, asc, eq, inArray, like, ne } from 'drizzle-orm'
+import { and, asc, eq, inArray, like, ne, sql } from 'drizzle-orm'
 import * as t from '../db/schema'
 import type { Db } from '../db/types'
 import { requireAdmin, type Actor } from '../guards'
@@ -83,23 +83,26 @@ export async function listAll(db: Db, actor: Actor) {
   return (await db.select().from(t.files).orderBy(asc(t.files.key))).map(toFile)
 }
 
-export async function createFolder(db: Db, actor: Actor, parent: string, name: string) {
+export async function createFolder(db: Db, actor: Actor, parent: string, name: string, storage: Storage = getStorage()) {
   requireAdmin(actor)
   const clean = sanitizeName(name)
   if (!clean) throw new ServiceError('VALIDATION', 'Informe um nome para a pasta.')
   const path = joinPath(safeFolder(parent), clean)
   if ((await allFolders(db)).includes(path)) throw new ServiceError('CONFLICT', 'Já existe uma pasta com este nome.')
+  // No bucket também: assim a pasta existe no R2 mesmo vazia (e aparece no painel da Cloudflare).
+  await storage.putFolder(path)
   await db.insert(t.folders).values({ path })
   return path
 }
 
-export async function removeFolder(db: Db, actor: Actor, path: string) {
+export async function removeFolder(db: Db, actor: Actor, path: string, storage: Storage = getStorage()) {
   requireAdmin(actor)
   const folder = normalizeFolder(path)
   const prefix = likePrefix(folder)
   const [file] = await db.select({ id: t.files.id }).from(t.files).where(like(t.files.key, prefix)).limit(1)
   const [sub] = await db.select({ path: t.folders.path }).from(t.folders).where(like(t.folders.path, prefix)).limit(1)
   if (file || sub) throw new ServiceError('CONFLICT', 'A pasta não está vazia.')
+  await storage.delete(`${folder}/`)
   await db.delete(t.folders).where(eq(t.folders.path, folder))
 }
 
@@ -179,28 +182,72 @@ export async function remove(db: Db, actor: Actor, id: string, { force = false }
 }
 
 /**
- * Importa para o banco os objetos que já estão no bucket e ainda não foram registrados
- * (ex.: conteúdo enviado antes pelo painel da Cloudflare). Também informa registros cujo objeto sumiu.
+ * Reconcilia o banco com o bucket:
+ * - registra arquivos e pastas que estão no bucket e ainda não estão no banco;
+ * - com `prune`, remove os registros cujo arquivo não existe mais no bucket (saem também dos pacotes),
+ *   remove pastas que não existem no bucket e oculta do catálogo os pacotes que ficarem sem arquivos.
  */
-export async function syncFromBucket(db: Db, actor: Actor, storage: Storage = getStorage()) {
+export async function syncFromBucket(db: Db, actor: Actor, { prune = false } = {}, storage: Storage = getStorage()): Promise<SyncResult> {
   requireAdmin(actor)
   if (storage.kind === 'demo') throw new ServiceError('CONFLICT', 'Armazenamento não configurado (modo demonstração).')
 
-  const registered = new Set((await db.select({ key: t.files.key }).from(t.files)).map((f) => f.key))
-  const inBucket = new Set<string>()
-  const toAdd: (typeof t.files.$inferInsert)[] = []
+  // O que existe no bucket: arquivos e "pastas" (marcadores e prefixos de arquivos).
+  const objects: { key: string; size: number }[] = []
+  const bucketFolders = new Set<string>()
   for await (const obj of storage.list()) {
-    // "Pastas" criadas no painel aparecem como objetos vazios terminando em "/".
-    if (obj.key.endsWith('/')) continue
-    inBucket.add(obj.key)
-    if (!registered.has(obj.key))
-      toAdd.push({ id: newId('fil'), key: obj.key, filename: obj.key.split('/').pop()!, size: obj.size, mime: mimeFromKey(obj.key) })
+    const parts = obj.key.replace(/\/+$/, '').split('/')
+    const dirs = obj.key.endsWith('/') ? parts : parts.slice(0, -1)
+    dirs.forEach((_, i) => bucketFolders.add(dirs.slice(0, i + 1).join('/')))
+    if (!obj.key.endsWith('/')) objects.push(obj)
   }
-  for (let i = 0; i < toAdd.length; i += 500) await db.insert(t.files).values(toAdd.slice(i, i + 500))
+  const bucketKeys = new Set(objects.map((o) => o.key))
+
+  const registeredFiles = await db.select({ id: t.files.id, key: t.files.key }).from(t.files)
+  const registeredKeys = new Set(registeredFiles.map((f) => f.key))
+  const explicitFolders = new Set((await db.select({ path: t.folders.path }).from(t.folders)).map((f) => f.path))
+
+  const toAdd = objects
+    .filter((o) => !registeredKeys.has(o.key))
+    .map((o) => ({ id: newId('fil'), key: o.key, filename: o.key.split('/').pop()!, size: o.size, mime: mimeFromKey(o.key) }))
+  const foldersToAdd = [...bucketFolders].filter((f) => !explicitFolders.has(f))
+  const missing = registeredFiles.filter((f) => !bucketKeys.has(f.key))
+  const foldersToRemove = [...explicitFolders].filter((f) => !bucketFolders.has(f))
+
+  const affected = missing.length
+    ? await db
+        .selectDistinct({ id: t.packages.id, title: t.packages.title })
+        .from(t.packageFiles)
+        .innerJoin(t.packages, eq(t.packageFiles.packageId, t.packages.id))
+        .where(inArray(t.packageFiles.fileId, missing.map((f) => f.id)))
+    : []
+
+  let deactivatedPackages: string[] = []
+  await db.transaction(async (tx) => {
+    for (let i = 0; i < toAdd.length; i += 500) await tx.insert(t.files).values(toAdd.slice(i, i + 500))
+    if (foldersToAdd.length) await tx.insert(t.folders).values(foldersToAdd.map((path) => ({ path })))
+    if (!prune) return
+
+    if (missing.length) await tx.delete(t.files).where(inArray(t.files.id, missing.map((f) => f.id)))
+    if (foldersToRemove.length) await tx.delete(t.folders).where(inArray(t.folders.path, foldersToRemove))
+    // Pacote ativo sem nenhum arquivo não pode ficar no catálogo.
+    const emptied = await tx
+      .update(t.packages)
+      .set({ active: false, updatedAt: new Date() })
+      .where(
+        and(eq(t.packages.active, true), sql`not exists (select 1 from ${t.packageFiles} where ${t.packageFiles.packageId} = ${t.packages.id})`),
+      )
+      .returning({ title: t.packages.title })
+    deactivatedPackages = emptied.map((p) => p.title)
+  })
 
   return {
     added: toAdd.length,
-    alreadyRegistered: inBucket.size - toAdd.length,
-    missingInBucket: [...registered].filter((k) => !inBucket.has(k)).length,
+    addedFolders: foldersToAdd.length,
+    alreadyRegistered: objects.length - toAdd.length,
+    missingInBucket: prune ? 0 : missing.length,
+    affectedPackages: affected.length,
+    removed: prune ? missing.length : 0,
+    removedFolders: prune ? foldersToRemove.length : 0,
+    deactivatedPackages,
   }
 }

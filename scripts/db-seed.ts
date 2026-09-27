@@ -5,14 +5,16 @@
 import { sql } from 'drizzle-orm'
 import { db } from '../lib/server/db'
 import { seedDatabase } from '../lib/server/seed'
+import { getStorage } from '../lib/server/storage'
 
 async function main() {
   if (process.env.VERCEL_ENV || process.env.NODE_ENV === 'production') {
     throw new Error('Seed bloqueado: não rode em produção.')
   }
 
-  console.log('Recriando dados de exemplo…')
-  await seedDatabase(db)
+  const withFiles = getStorage().kind === 'demo'
+  console.log(withFiles ? 'Recriando dados de exemplo…' : 'Recriando dados de exemplo sem arquivos fictícios (R2 configurado: use "Sincronizar com o bucket")…')
+  await seedDatabase(db, { withFiles })
 
   const counts = await db.execute<{ table: string; n: number }>(sql`
     select 'users' as table, count(*)::int as n from users

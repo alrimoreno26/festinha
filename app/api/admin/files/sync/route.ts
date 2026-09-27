@@ -1,8 +1,12 @@
 import * as files from '@/lib/server/domain/files'
-import { db, route } from '@/lib/server/http'
+import { body, db, route } from '@/lib/server/http'
+import { z } from 'zod'
 
-/** Registra no banco os objetos que já estão no bucket. */
-export const POST = route(({ actor }) => files.syncFromBucket(db, actor))
+/** Reconcilia banco e bucket. Com `prune`, remove os registros cujo arquivo não existe mais no bucket. */
+export const POST = route(async ({ req, actor }) => {
+  const { prune } = await body(req, z.object({ prune: z.boolean().default(false) }))
+  return files.syncFromBucket(db, actor, { prune })
+})
 
 // Pode percorrer o bucket inteiro.
 export const maxDuration = 60

@@ -62,6 +62,9 @@ function toPayment(p: Record<string, unknown>): MpPayment {
   }
 }
 
+/** Domínios reservados (RFC 2606/6761): nunca são emails reais. */
+export const isReservedEmail = (email: string) => /\.(test|example|invalid|localhost)$/i.test(email.trim())
+
 function mercadoPago(accessToken: string): PaymentGateway {
   async function call<T>(method: string, path: string, body?: unknown, idempotencyKey?: string): Promise<T> {
     const res = await fetch(API + path, {
@@ -97,7 +100,9 @@ function mercadoPago(accessToken: string): PaymentGateway {
               category_id: 'others',
             },
           ],
-          payer: { name: req.payer.name, email: req.payer.email },
+          // O email só pré-preenche o checkout do MP (o nosso pedido guarda o email de qualquer forma).
+          // Domínios reservados para testes (.test, .example…) fazem o MP recusar o pagamento: não enviamos.
+          payer: { name: req.payer.name, ...(isReservedEmail(req.payer.email) ? {} : { email: req.payer.email }) },
           external_reference: req.orderId,
           metadata: { order_id: req.orderId },
           ...(req.notificationUrl ? { notification_url: req.notificationUrl } : {}),

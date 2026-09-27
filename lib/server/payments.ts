@@ -89,12 +89,22 @@ function mercadoPago(accessToken: string): PaymentGateway {
       .then((me) => !!me.tags?.includes('test_user'))
       .catch(() => false))
 
+  /**
+   * O email do comprador pré-preenche o checkout e ajuda o antifraude — mas com credenciais de teste,
+   * um email real faz o MP recusar ("uma das partes é de teste e a outra é real"). Por isso só enviamos
+   * no ambiente Production da Vercel, nunca para domínios reservados (.test…) e nunca se a conta for de teste.
+   */
+  async function shouldSendPayerEmail(email: string) {
+    if (process.env.VERCEL_ENV !== 'production') return false
+    if (isReservedEmail(email)) return false
+    return !(await isTestAccount())
+  }
+
   return {
     kind: 'mercadopago',
     async createCheckout(req) {
       const https = req.returnUrl.startsWith('https://')
-      // Em conta de teste, um comprador com email real faz o MP recusar ("uma das partes é de teste e a outra é real").
-      const sendEmail = !isReservedEmail(req.payer.email) && !(await isTestAccount())
+      const sendEmail = await shouldSendPayerEmail(req.payer.email)
       const pref = await call<{ id: string; init_point: string }>(
         'POST',
         '/checkout/preferences',

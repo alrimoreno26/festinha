@@ -20,14 +20,15 @@ export async function dispatchPendingEmails(
   if (mailer.kind === 'none') return { sent: 0, failed: 0 }
 
   // Reserva atômica: empurra next_attempt_at para frente nos que vamos enviar (SKIP LOCKED = sem disputa).
-  const now = new Date()
+  // Sempre com o relógio do banco: o next_attempt_at nasce com now() do Postgres, e comparar com o relógio
+  // do servidor da aplicação (que pode estar alguns ms atrás) faria um email recém-criado parecer "do futuro".
   const claimed = await db
     .update(t.emailOutbox)
-    .set({ nextAttemptAt: new Date(now.getTime() + LEASE_MS) })
+    .set({ nextAttemptAt: sql`now() + ${`${LEASE_MS} milliseconds`}::interval` })
     .where(
       sql`${t.emailOutbox.id} in (
         select ${t.emailOutbox.id} from ${t.emailOutbox}
-        where ${and(isNull(t.emailOutbox.sentAt), lt(t.emailOutbox.attempts, MAX_ATTEMPTS), lte(t.emailOutbox.nextAttemptAt, now))}
+        where ${and(isNull(t.emailOutbox.sentAt), lt(t.emailOutbox.attempts, MAX_ATTEMPTS), lte(t.emailOutbox.nextAttemptAt, sql`now()`))}
         order by ${t.emailOutbox.createdAt}
         limit ${limit}
         for update skip locked
@@ -55,7 +56,7 @@ export async function dispatchPendingEmails(
         .set({
           attempts: giveUp ? MAX_ATTEMPTS : attempts,
           lastError: String((err as Error).message).slice(0, 500),
-          nextAttemptAt: new Date(Date.now() + (BACKOFF_MS[attempts - 1] ?? BACKOFF_MS[BACKOFF_MS.length - 1])),
+          nextAttemptAt: sql`now() + ${`${BACKOFF_MS[attempts - 1] ?? BACKOFF_MS[BACKOFF_MS.length - 1]} milliseconds`}::interval`,
         })
         .where(eq(t.emailOutbox.id, email.id))
       failed++

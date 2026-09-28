@@ -9,6 +9,7 @@ import type { Db } from '../db/types'
 import { requireAdmin, type Actor } from '../guards'
 import { newId } from '../ids'
 import { toEntitlement, toOrder, toUser } from '../mappers'
+import * as messages from '../email/messages'
 import { grantEntitlement, sendEmail } from './fulfillment'
 
 async function loadCustomer(db: Db, id: string) {
@@ -110,13 +111,7 @@ export async function create(db: Db, actor: Actor, input: z.input<typeof newCust
         passwordHash,
       })
       .returning()
-    await sendEmail(tx, {
-      to: user.email,
-      subject: 'Sua conta na Festinhas foi criada',
-      body: `Olá, ${user.name}! Criamos sua conta na Área do Cliente.\n\nEmail: ${user.email}\nSenha temporária: ${password}`,
-      actionUrl: '/conta/login',
-      actionLabel: 'Acessar',
-    })
+    await sendEmail(tx, { to: user.email, ...messages.accountCreated({ name: user.name, email: user.email, tempPassword: password }) })
     return toUser(user)
   })
 }
@@ -129,13 +124,7 @@ export async function grantAccess(db: Db, actor: Actor, userId: string, packageI
   if (!pkg) throw new ServiceError('NOT_FOUND', 'Pacote não encontrado.')
   await db.transaction(async (tx) => {
     await grantEntitlement(tx, { userId, packageId, orderId: null, accessDays })
-    await sendEmail(tx, {
-      to: user.email,
-      subject: `Você ganhou acesso ao ${pkg.title}`,
-      body: `Olá, ${user.name}! O ${pkg.title} já está disponível na sua Área do Cliente.`,
-      actionUrl: '/conta',
-      actionLabel: 'Ver meus kits',
-    })
+    await sendEmail(tx, { to: user.email, ...messages.accessGranted({ name: user.name, kit: pkg.title }) })
   })
 }
 
@@ -163,12 +152,6 @@ export async function resendAccess(db: Db, actor: Actor, userId: string) {
   await db.transaction(async (tx) => {
     await tx.update(t.users).set({ passwordHash, mustChangePassword: true, updatedAt: new Date() }).where(eq(t.users.id, userId))
     await tx.delete(t.sessions).where(eq(t.sessions.userId, userId))
-    await sendEmail(tx, {
-      to: user.email,
-      subject: 'Seus dados de acesso',
-      body: `Olá, ${user.name}! Aqui estão seus novos dados de acesso.\n\nEmail: ${user.email}\nSenha temporária: ${password}`,
-      actionUrl: '/conta/login',
-      actionLabel: 'Acessar meus kits',
-    })
+    await sendEmail(tx, { to: user.email, ...messages.accessResent({ name: user.name, email: user.email, tempPassword: password }) })
   })
 }

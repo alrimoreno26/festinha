@@ -9,6 +9,7 @@ import * as t from '../db/schema'
 import type { Db } from '../db/types'
 import { newToken, sha256 } from '../ids'
 import { toUser } from '../mappers'
+import * as messages from '../email/messages'
 import { sendEmail } from './fulfillment'
 
 const DAY = 24 * 60 * 60 * 1000
@@ -119,13 +120,7 @@ export async function requestPasswordReset(db: Db, emailInput: string) {
     userId: user.id,
     expiresAt: new Date(Date.now() + RESET_TTL_MS),
   })
-  await sendEmail(db, {
-    to: user.email,
-    subject: 'Redefinir sua senha',
-    body: `Olá, ${user.name}! Recebemos um pedido para redefinir sua senha. O link vale por 1 hora.\n\nSe não foi você, ignore este email.`,
-    actionUrl: `/conta/redefinir-senha?token=${token}`,
-    actionLabel: 'Criar nova senha',
-  })
+  await sendEmail(db, { to: user.email, ...messages.passwordReset({ name: user.name, token }) })
 }
 
 /** Redefine a senha com o token do email. Uso único; encerra todas as sessões do usuário. */

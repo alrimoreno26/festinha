@@ -4,6 +4,7 @@ import { addDays } from '@/lib/entitlements'
 import type { OrderStatus } from '@/lib/types'
 import { and, eq, isNull } from 'drizzle-orm'
 import { generateTempPassword, hashPassword } from '../auth/password'
+import * as messages from '../email/messages'
 import * as t from '../db/schema'
 import type { Db } from '../db/types'
 import { newId } from '../ids'
@@ -105,12 +106,9 @@ export async function approveOrder(db: Db, orderId: string) {
 
   await sendEmail(db, {
     to: user.email,
-    subject: `Seu ${pkg.title} está liberado! 🎉`,
-    body: tempPassword
-      ? `Olá, ${user.name}! Seu pagamento foi confirmado.\n\nAcesse a Área do Cliente com:\nEmail: ${user.email}\nSenha temporária: ${tempPassword}\n\nNo primeiro acesso você vai criar sua própria senha.`
-      : `Olá, ${user.name}! Seu pagamento foi confirmado e o ${pkg.title} já está na sua conta. Entre com seu email e senha de sempre.`,
-    actionUrl: '/conta/login',
-    actionLabel: 'Acessar meus kits',
+    ...(tempPassword
+      ? messages.purchaseNewCustomer({ name: user.name, email: user.email, tempPassword, kit: pkg.title })
+      : messages.purchaseExistingCustomer({ name: user.name, kit: pkg.title })),
   })
 
   return { approved: true as const, userId: user.id, createdUser: !!tempPassword }

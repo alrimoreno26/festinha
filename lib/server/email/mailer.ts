@@ -46,8 +46,9 @@ function resend(apiKey: string): Mailer {
       })
       const body = await res.text()
       if (!res.ok) {
-        // 4xx (exceto limite de taxa) = problema no email em si; 429/5xx = tentar de novo mais tarde.
-        const permanent = res.status >= 400 && res.status < 500 && res.status !== 429
+        // Só 400/422 são problemas do email em si (ex.: endereço inválido): não adianta tentar de novo.
+        // 401/403 (chave ou domínio ainda não verificado), 429 e 5xx se resolvem com o tempo: tenta de novo.
+        const permanent = res.status === 400 || res.status === 422
         throw new MailerError(`Resend ${res.status}: ${body.slice(0, 300)}`, permanent)
       }
       return { providerId: (JSON.parse(body) as { id: string }).id }

@@ -11,13 +11,13 @@ export function Table({ className, ...props }: HTMLAttributes<HTMLTableElement>)
 }
 
 export const THead = (props: HTMLAttributes<HTMLTableSectionElement>) => (
-  <thead className="bg-brand-sand/60 text-left text-xs uppercase tracking-wide text-gray-500" {...props} />
+  <thead className="bg-brand-cream/60 text-left text-xs uppercase tracking-wide text-gray-500" {...props} />
 )
 
 export const TBody = (props: HTMLAttributes<HTMLTableSectionElement>) => <tbody className="divide-y divide-black/5" {...props} />
 
 export function TR({ className, onClick, ...props }: HTMLAttributes<HTMLTableRowElement>) {
-  return <tr className={cn(onClick && 'cursor-pointer hover:bg-brand-sand/40', className)} onClick={onClick} {...props} />
+  return <tr className={cn(onClick && 'cursor-pointer hover:bg-brand-cream/40', className)} onClick={onClick} {...props} />
 }
 
 export const TH = ({ className, ...props }: ThHTMLAttributes<HTMLTableCellElement>) => (

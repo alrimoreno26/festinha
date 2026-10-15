@@ -15,7 +15,7 @@ import {
 const control = (invalid?: boolean) =>
   cn(
     'w-full rounded-2xl border bg-white px-4 text-[15px] text-gray-900 placeholder:text-gray-400 transition-shadow',
-    'focus:outline-none focus:ring-2 focus:ring-brand-teal/50 focus:border-brand-teal',
+    'focus:outline-none focus:ring-2 focus:ring-brand-grape/50 focus:border-brand-grape',
     'disabled:bg-gray-50 disabled:text-gray-500',
     invalid ? 'border-red-400 focus:ring-red-300 focus:border-red-400' : 'border-gray-200',
   )
@@ -103,8 +103,8 @@ export function Switch({ checked, onChange, label, disabled }: SwitchProps) {
         onClick={() => onChange(!checked)}
         className={cn(
           'relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2',
-          checked ? 'bg-brand-teal' : 'bg-gray-300',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-grape focus-visible:ring-offset-2',
+          checked ? 'bg-brand-grape' : 'bg-gray-300',
         )}
       >
         <span

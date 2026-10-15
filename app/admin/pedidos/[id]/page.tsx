@@ -105,7 +105,7 @@ export default function PedidoPage({ params }: { params: { id: string } }) {
                     <Row label="Status no MP">{payment.mpStatus ? <span className="font-mono text-xs">{payment.mpStatus}</span> : '—'}</Row>
                   </>
                 )}
-                <Row label="Pacote">{pkg ? <Link href={`/admin/pacotes/${pkg.id}`} className="text-brand-teal hover:underline">{pkg.title}</Link> : '—'}</Row>
+                <Row label="Pacote">{pkg ? <Link href={`/admin/pacotes/${pkg.id}`} className="text-brand-grape hover:underline">{pkg.title}</Link> : '—'}</Row>
               </dl>
               {order.status === 'pending' && (
                 <p className="mt-3 rounded-2xl bg-amber-50 p-3 text-xs text-amber-800">
@@ -117,10 +117,10 @@ export default function PedidoPage({ params }: { params: { id: string } }) {
             <Card className="p-5">
               <h2 className="font-semibold text-gray-900">Cliente</h2>
               <dl className="mt-2 divide-y divide-black/5">
-                <Row label="Nome">{customer ? <Link href={`/admin/clientes/${customer.id}`} className="text-brand-teal hover:underline">{order.name}</Link> : order.name}</Row>
+                <Row label="Nome">{customer ? <Link href={`/admin/clientes/${customer.id}`} className="text-brand-grape hover:underline">{order.name}</Link> : order.name}</Row>
                 <Row label="Email">{order.email}</Row>
                 <Row label="WhatsApp">
-                  <a href={waLink(order.phone)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand-teal hover:underline">
+                  <a href={waLink(order.phone)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand-grape hover:underline">
                     <MessageCircle size={14} /> {order.phone}
                   </a>
                 </Row>

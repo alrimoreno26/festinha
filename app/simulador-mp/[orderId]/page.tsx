@@ -58,7 +58,7 @@ export default function SimuladorPage({ params }: { params: { orderId: string } 
           <div className="rounded-2xl bg-white shadow-sm overflow-hidden">
             <div className="p-5 border-b border-slate-100">
               <p className="text-xs text-slate-500">Você está pagando para</p>
-              <p className="font-semibold">Festinhas Criativa Papelaria</p>
+              <p className="font-semibold">Festinhas Criativas Papelaria</p>
               <div className="mt-4 flex items-center justify-between">
                 <p className="text-sm text-slate-600">{query.data.packageTitle}</p>
                 <p className="text-2xl font-bold tabular-nums">{formatBRL(query.data.amountCents)}</p>

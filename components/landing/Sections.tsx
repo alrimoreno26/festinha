@@ -1,75 +1,195 @@
 'use client'
+import { Balloons, Bunting, SectionTitle, StepBadge } from '@/components/brand/Decor'
+import { buttonClasses } from '@/components/ui'
+import { BRAND, instagramUrl, whatsappUrl } from '@/lib/brand'
 import { motion } from 'framer-motion'
-import { Star, Sparkles, Phone, Mail, MapPin, Instagram, MessageCircle } from 'lucide-react'
-import { palette } from '@/lib/palette'
+import { Heart, Instagram, Mail, MapPin, MessageCircle, Sparkles } from 'lucide-react'
+import Link from 'next/link'
 
-const benefits = [
-  { title: 'Design exclusivo', desc: 'Cores, tipografias e personagens criados para você.' },
-  { title: 'Acabamento premium', desc: 'Papéis especiais, cortes precisos, foil e detalhes.' },
-  { title: 'Kits completos', desc: 'Convites, toppers, bandeirinhas, adesivos e lembrancinhas.' },
-  { title: 'Entrega pontual', desc: 'Acompanhamos cada etapa para chegar a tempo.' },
-]
-const services = [
-  { title:'Identidade visual para festas', desc:'Criamos o conceito do seu evento: paleta, tipografias e personagens.' },
-  { title:'Papelaria personalizada', desc:'Convites, toppers, bandeirinhas, plaquinhas e adesivos.' },
-  { title:'Embalagens & lembrancinhas', desc:'Caixinhas, tags e sacolinhas combinando com o tema.' },
-]
+const fadeUp = { initial: { opacity: 0, y: 20 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { duration: 0.5 } }
 
-export function Hero(){
+export function Hero() {
   return (
-    <section id="hero" className="relative overflow-hidden">
-      <div className="max-w-6xl mx-auto px-4 py-16 md:py-24 grid md:grid-cols-2 gap-10 items-center">
-        <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:.6}}>
-          <h1 className="text-4xl md:text-5xl font-extrabold leading-tight mb-4" style={{color: palette.brown}}>
-            Papelaria criativa para <span style={{color: palette.coral}}>celebrações únicas</span>.
-          </h1>
-          <p className="text-[17px] text-gray-700 mb-6">
-            Transformamos sua festa com kits personalizados: convites, toppers, bandeirinhas, adesivos e embalagens. Tudo feito com carinho no seu estilo.
+    <section id="hero" className="relative overflow-hidden confetti">
+      <div className="max-w-6xl mx-auto px-4 py-12 md:py-20 grid md:grid-cols-2 gap-10 items-center">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="text-center md:text-left">
+          <p className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-brand-rose shadow-sm ring-1 ring-brand-pink/40">
+            {BRAND.tagline.map((w, i) => (
+              <span key={w} className="inline-flex items-center gap-2">
+                {i > 0 && <Heart size={12} className="fill-brand-sun text-brand-sun" />}
+                {w}
+              </span>
+            ))}
           </p>
-          <div className="flex flex-wrap gap-3">
-            <a href="/pacotes" className="px-5 py-3 rounded-2xl shadow-md font-medium" style={{background: palette.teal, color: 'white'}}>Ver kits digitais</a>
-            <a href="#contato" className="px-5 py-3 rounded-2xl font-medium border" style={{borderColor: palette.coral, color: palette.coral}}>Pedir orçamento</a>
+          <h1 className="mt-5 text-4xl md:text-6xl font-bold leading-[1.05] text-brand-ink">
+            Transformando festas simples em <span className="text-rainbow">celebrações inesquecíveis</span>
+          </h1>
+          <p className="mt-5 text-[17px] leading-relaxed">
+            Kits digitais e papelaria personalizada para aniversários, chás e datas especiais. Compre, baixe na hora, imprima e monte sua festa do seu jeitinho. 💕
+          </p>
+          <div className="mt-7 flex flex-wrap justify-center md:justify-start gap-3">
+            <Link href="/pacotes" className={buttonClasses('primary', 'lg')}>
+              <Sparkles size={18} /> Ver kits digitais
+            </Link>
+            <a href="#contato" className={buttonClasses('outline', 'lg')}>
+              Quero um kit personalizado
+            </a>
           </div>
-          <div className="mt-6 flex items-center gap-2 text-sm text-gray-600"><Sparkles size={18}/><span>Feito com amor em cada detalhe</span></div>
         </motion.div>
-        <motion.div initial={{opacity:0,scale:.96}} animate={{opacity:1,scale:1}} transition={{duration:.6, delay:.1}} className="relative">
-          <div className="relative bg-white/70 backdrop-blur rounded-3xl p-6 shadow-lg border">
-            <img src="/logo-festinhas.png" alt="Logo preview" className="w-full max-w-sm mx-auto"/>
-            <p className="text-center text-sm mt-2 text-gray-500">Festinhas Criativa Papelaria</p>
-          </div>
+        <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.6, delay: 0.1 }} className="relative">
+          <img
+            src="/brand/logo.webp"
+            alt={`${BRAND.fullName} — ${BRAND.tagline.join(', ')}`}
+            className="w-full max-w-md mx-auto rounded-[2.5rem] shadow-xl shadow-brand-pink/30 ring-8 ring-white"
+          />
+          <Balloons className="absolute -bottom-6 -right-2 md:-right-8 animate-float" />
         </motion.div>
       </div>
     </section>
   )
 }
 
-export function Benefits(){
+export function About() {
   return (
-    <section className="py-10 bg-white/70 border-y">
-      <div className="max-w-6xl mx-auto px-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {benefits.map((b,i)=> (
-          <div key={i} className="bg-white rounded-2xl p-5 border shadow-sm">
-            <p className="font-semibold mb-1" style={{color: palette.brown}}>{b.title}</p>
-            <p className="text-sm text-gray-600">{b.desc}</p>
-          </div>
+    <section id="quem-somos" className="py-14 md:py-20">
+      <Bunting className="max-w-5xl mx-auto -mt-6 mb-6 px-4" />
+      <div className="max-w-5xl mx-auto px-4">
+        <SectionTitle>Quem somos?</SectionTitle>
+        <div className="grid md:grid-cols-[1.4fr_1fr] gap-6">
+          <motion.div {...fadeUp} className="rounded-[2.5rem] bg-brand-lilac/60 p-6 md:p-8 text-center md:text-left leading-relaxed space-y-4">
+            <p>
+              A <strong className="text-brand-ink">Festinhas Criativas</strong> é um cantinho cheio de cor, carinho e imaginação, criado para transformar momentos
+              especiais em lembranças inesquecíveis.
+            </p>
+            <p>
+              Acreditamos que cada comemoração merece ser única, bonita e cheia de personalidade. Por isso trabalhamos com arquivos digitais e impressão de
+              papelaria personalizada para festas, preparados com muito cuidado e atenção a cada detalhe.
+            </p>
+            <p>✨ Aniversários, chás, comemorações infantis e diversas datas especiais — do seu jeitinho.</p>
+          </motion.div>
+          <motion.div {...fadeUp} transition={{ duration: 0.5, delay: 0.1 }} className="card-dashed p-6 md:p-8">
+            <p className="font-display text-2xl font-bold text-brand-rose">Quem sou eu?</p>
+            <p className="mt-1 text-sm font-semibold uppercase tracking-widest text-brand-grape">Lisandra</p>
+            <p className="mt-4 leading-relaxed">
+              Sou a criadora da Festinhas Criativas, um projeto que nasceu do amor pelo meu filho e das comemorações que vivi ao lado dele. Hoje transformo esse
+              amor em criações para ajudar outras famílias a celebrar com beleza, criatividade e praticidade. 💕
+            </p>
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+const steps = [
+  { title: 'Escolha o seu kit', desc: 'Navegue pelos kits digitais pega e monta e escolha o tema da sua festa.' },
+  { title: 'Pague com Pix ou cartão', desc: 'Pagamento seguro pelo Mercado Pago. O Pix é confirmado na hora.' },
+  { title: 'Receba seu acesso', desc: 'Enviamos por email os dados da sua Área do Cliente assim que o pagamento é aprovado.' },
+  { title: 'Baixe e imprima', desc: 'Os arquivos ficam disponíveis para baixar e imprimir onde preferir.' },
+  { title: 'Recorte e monte', desc: 'Caixinhas, tags, topos e lembrancinhas prontos para montar.' },
+  { title: 'Faça uma linda festa!', desc: 'Agora é só celebrar e guardar as lembranças. 🎉' },
+]
+
+export function HowItWorks() {
+  return (
+    <section id="como-funciona" className="relative">
+      <div className="bg-brand-pink">
+        <div className="max-w-6xl mx-auto px-4 pt-12 pb-8 text-center">
+          <h2 className="text-4xl md:text-5xl font-bold uppercase text-white [text-shadow:0_2px_0_rgb(204_58_133/.35)]">Como funciona?</h2>
+          <p className="mt-2 font-semibold text-brand-ink">O que você precisa fazer é muito simples</p>
+        </div>
+      </div>
+      <div aria-hidden className="scallops text-brand-pink" />
+      <div className="max-w-5xl mx-auto px-4 py-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-8">
+        {steps.map((s, i) => (
+          <motion.div key={s.title} {...fadeUp} transition={{ duration: 0.4, delay: 0.05 * i }} className="flex gap-4">
+            <StepBadge n={i + 1} />
+            <div>
+              <p className="font-display text-xl font-semibold text-brand-rose uppercase">{s.title}</p>
+              <p className="mt-1 text-sm leading-relaxed">{s.desc}</p>
+            </div>
+          </motion.div>
         ))}
       </div>
     </section>
   )
 }
 
-export function Services(){
+const options = [
+  {
+    n: 1,
+    title: 'Kits digitais prontos',
+    desc: 'Arquivos prontos para baixar, imprimir e montar. Pague aqui no site e receba o acesso na hora.',
+    cta: { label: 'Ver kits', href: '/pacotes' },
+  },
+  {
+    n: 2,
+    title: 'Kit personalizado',
+    desc: 'Personalizamos cada detalhe com o nome, idade, cores e o tema da sua festa. Você recebe o arquivo digital ou opta pela impressão.',
+    cta: { label: 'Pedir pelo WhatsApp', href: whatsappUrl('Olá! Quero um kit personalizado 💕') },
+  },
+  {
+    n: 3,
+    title: 'Impressão',
+    desc: 'Kits impressos com qualidade, capricho e atenção aos detalhes. Retirada no local ou entrega por motoboy/aplicativo.',
+    cta: { label: 'Fazer orçamento', href: whatsappUrl('Olá! Quero um orçamento de impressão.') },
+  },
+]
+
+export function Options() {
   return (
-    <section id="servicos" className="py-16 md:py-24 bg-white/60 border-y">
+    <section id="servicos" className="py-14 md:py-20 bg-white/70">
       <div className="max-w-6xl mx-auto px-4">
-        <h2 className="text-3xl md:text-4xl font-bold text-center mb-10" style={{color: palette.brown}}>Serviços</h2>
+        <SectionTitle subtitle="Encontre a opção ideal para você: kits completos, personalizados ou impressos, prontos para transformar suas ideias em lindas criações.">
+          Opções de kits
+        </SectionTitle>
         <div className="grid md:grid-cols-3 gap-6">
-          {services.map((s,i)=> (
-            <div key={i} className="bg-white rounded-3xl p-6 border shadow-sm">
-              <div className="flex items-center gap-1 text-yellow-500 mb-3"><Star size={16}/><Star size={16}/><Star size={16}/></div>
-              <p className="font-semibold mb-1" style={{color: palette.coral}}>{s.title}</p>
-              <p className="text-gray-600 text-sm">{s.desc}</p>
-            </div>
+          {options.map((o) => (
+            <motion.div key={o.title} {...fadeUp} className="card-dashed p-6 flex flex-col">
+              <div className="flex items-center gap-3">
+                <StepBadge n={o.n} className="h-11 w-11 text-xl" />
+                <p className="font-display text-xl font-bold text-brand-ink uppercase">{o.title}</p>
+              </div>
+              <p className="mt-4 text-sm leading-relaxed flex-1">{o.desc}</p>
+              <a
+                href={o.cta.href}
+                {...(o.cta.href.startsWith('http') ? { target: '_blank', rel: 'noreferrer' } : {})}
+                className={buttonClasses(o.n === 1 ? 'primary' : 'secondary', 'md', 'mt-5 self-start')}
+              >
+                {o.cta.label}
+              </a>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+const themes = [
+  { icon: '🎀', title: 'Personagens e desenhos', desc: 'Os personagens e animações favoritos das crianças.' },
+  { icon: '🦄', title: 'Encantados e fantasia', desc: 'Princesas, unicórnios, sereias, fadas e magia.' },
+  { icon: '🦖', title: 'Aventura e diversão', desc: 'Dinossauros, super-heróis, piratas, safári e fazendinha.' },
+  { icon: '🚗', title: 'Carros e transportes', desc: 'Carros, caminhões, aviões, trens e construção.' },
+  { icon: '🌸', title: 'Delicados e fofos', desc: 'Flores, borboletas, bichinhos, arco-íris e ursinhos.' },
+  { icon: '🎂', title: 'Todas as idades', desc: 'Do batizado e primeiro aninho às festas de adultos.' },
+]
+const themeBg = ['bg-brand-pink/40', 'bg-brand-lilac/60', 'bg-brand-mint/60', 'bg-brand-sky/50', 'bg-brand-peach/50', 'bg-brand-sun/50']
+
+export function Themes() {
+  return (
+    <section id="temas" className="py-14 md:py-20">
+      <div className="max-w-6xl mx-auto px-4">
+        <SectionTitle subtitle="Uma grande variedade de temas para diferentes idades, estilos e ocasiões.">Temas para todos os momentos</SectionTitle>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          {themes.map((t, i) => (
+            <motion.div key={t.title} {...fadeUp} transition={{ duration: 0.4, delay: 0.04 * i }} className={`rounded-3xl p-5 ${themeBg[i]}`}>
+              <p className="text-3xl" aria-hidden>
+                {t.icon}
+              </p>
+              <p className="mt-2 font-display text-lg font-semibold text-brand-ink">{t.title}</p>
+              <p className="mt-1 text-sm">{t.desc}</p>
+            </motion.div>
           ))}
         </div>
       </div>
@@ -79,16 +199,22 @@ export function Services(){
 
 export type GalleryItem = { src: string; alt?: string }
 
-export function Gallery({ items = [] }: { items?: GalleryItem[] }){
+export function Gallery({ items = [] }: { items?: GalleryItem[] }) {
   return (
-    <section id="galeria" className="py-16 md:py-24">
+    <section id="galeria" className="py-14 md:py-20 bg-white/70">
       <div className="max-w-6xl mx-auto px-4">
-        <h2 className="text-3xl md:text-4xl font-bold text-center mb-2" style={{color: palette.brown}}>Galeria</h2>
-        <p className="text-center text-gray-600 mb-10">Alguns trabalhos e materiais promocionais.</p>
+        <SectionTitle subtitle="Alguns trabalhos e materiais feitos com carinho.">Galeria</SectionTitle>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {items.map((g,idx)=> (
-            <motion.div key={idx} initial={{opacity:0}} whileInView={{opacity:1}} viewport={{once:true}} transition={{duration:.4, delay:.05*idx}} className="overflow-hidden rounded-2xl shadow-sm bg-white">
-              <img src={g.src} alt={g.alt || 'Galeria Festinhas'} className="h-44 md:h-56 w-full object-cover hover:scale-105 transition-transform duration-300"/>
+          {items.map((g, idx) => (
+            <motion.div
+              key={idx}
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: 0.05 * idx }}
+              className="overflow-hidden rounded-3xl bg-white ring-4 ring-white shadow-sm shadow-brand-pink/30"
+            >
+              <img src={g.src} alt={g.alt || 'Galeria Festinhas Criativas'} className="h-44 md:h-56 w-full object-cover hover:scale-105 transition-transform duration-300" />
             </motion.div>
           ))}
         </div>
@@ -97,29 +223,49 @@ export function Gallery({ items = [] }: { items?: GalleryItem[] }){
   )
 }
 
-export function Contact(){
+export function Contact() {
   return (
-    <section id="contato" className="py-16 md:py-24 bg-white/60 border-t">
+    <section id="contato" className="py-14 md:py-20">
       <div className="max-w-4xl mx-auto px-4">
-        <h2 className="text-3xl md:text-4xl font-bold text-center mb-2" style={{color: palette.brown}}>Contato</h2>
-        <p className="text-center text-gray-600 mb-8">Fale com a gente e vamos planejar sua papelaria ✨</p>
-        <div className="grid md:grid-cols-2 gap-8">
-          <form onSubmit={(e)=>e.preventDefault()} className="bg-white rounded-3xl p-6 shadow-sm border">
-            <label className="block text-sm mb-2">Nome</label>
-            <input className="w-full mb-4 px-4 py-3 rounded-2xl border outline-none focus:ring" placeholder="Seu nome" />
-            <label className="block text-sm mb-2">Email</label>
-            <input type="email" className="w-full mb-4 px-4 py-3 rounded-2xl border outline-none focus:ring" placeholder="voce@email.com" />
-            <label className="block text-sm mb-2">Mensagem</label>
-            <textarea className="w-full mb-6 px-4 py-3 rounded-2xl border outline-none focus:ring" rows={4} placeholder="Quero um kit para..." />
-            <button className="w-full px-5 py-3 rounded-2xl font-semibold shadow" style={{background: palette.coral, color: 'white'}}>Enviar</button>
-            <p className="text-xs text-gray-500 mt-3">* Formulário demonstrativo.</p>
-          </form>
-          <div className="bg-white rounded-3xl p-6 shadow-sm border">
-            <div className="flex items-center gap-3 mb-4"><Phone size={18}/><span>+55 48 99105-6244</span></div>
-            <div className="flex items-center gap-3 mb-4"><Mail size={18}/><span>papeleriafestinhacreatina@gmail.com</span></div>
-            <div className="flex items-center gap-3 mb-6"><MapPin size={18}/><span>Florianópolis – Ingleses</span></div>
-            <a href="https://wa.me/5548991056244" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl mr-3" style={{background: palette.teal, color: 'white'}}><MessageCircle size={18}/> WhatsApp</a>
-            <a href="https://instagram.com/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl" style={{background: palette.coral, color: 'white'}}><Instagram size={18}/> Instagram</a>
+        <SectionTitle subtitle="Nossa coleção está sempre crescendo! Se você já tem um tema em mente, fale com a gente e encontramos uma criação que combine com a sua festa. 🎉">
+          Não encontrou o seu tema?
+        </SectionTitle>
+        <div className="rounded-[2.5rem] bg-brand-blush p-6 md:p-10 grid md:grid-cols-2 gap-6 items-center ring-1 ring-brand-pink/30">
+          <ul className="space-y-4 text-[15px]">
+            <li className="flex items-center gap-3">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand-mint text-brand-ink">
+                <MessageCircle size={18} />
+              </span>
+              {BRAND.whatsappDisplay}
+            </li>
+            <li className="flex items-center gap-3 min-w-0">
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-peach text-brand-ink">
+                <Mail size={18} />
+              </span>
+              <a href={`mailto:${BRAND.email}`} className="truncate hover:underline">
+                {BRAND.email}
+              </a>
+            </li>
+            <li className="flex items-center gap-3">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand-sun text-brand-ink">
+                <Instagram size={18} />
+              </span>
+              @{BRAND.instagram}
+            </li>
+            <li className="flex items-center gap-3">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand-sky text-brand-ink">
+                <MapPin size={18} />
+              </span>
+              {BRAND.city}
+            </li>
+          </ul>
+          <div className="flex flex-col gap-3">
+            <a href={whatsappUrl('Olá! Vim pelo site da Festinhas Criativas 💕')} target="_blank" rel="noreferrer" className={buttonClasses('primary', 'lg')}>
+              <MessageCircle size={18} /> Chamar no WhatsApp
+            </a>
+            <a href={instagramUrl} target="_blank" rel="noreferrer" className={buttonClasses('secondary', 'lg')}>
+              <Instagram size={18} /> Ver o Instagram
+            </a>
           </div>
         </div>
       </div>

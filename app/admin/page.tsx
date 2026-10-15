@@ -42,7 +42,7 @@ export default function DashboardPage() {
               <button
                 key={p}
                 onClick={() => setDays(p)}
-                className={cn('rounded-xl px-3 py-1.5 text-sm', days === p ? 'bg-brand-blush text-brand-coral-dark font-medium' : 'text-gray-600 hover:bg-black/5')}
+                className={cn('rounded-xl px-3 py-1.5 text-sm', days === p ? 'bg-brand-blush text-brand-rose-dark font-medium' : 'text-gray-600 hover:bg-black/5')}
               >
                 {p} dias
               </button>
@@ -71,7 +71,7 @@ export default function DashboardPage() {
                 <StatCard
                   label="Aguardando pagamento"
                   value={stats.data.pendingOrders}
-                  hint={stats.data.pendingOrders ? <Link href="/admin/pedidos?status=pending" className="text-brand-teal">Ver pendentes →</Link> : 'Nenhum pendente'}
+                  hint={stats.data.pendingOrders ? <Link href="/admin/pedidos?status=pending" className="text-brand-grape">Ver pendentes →</Link> : 'Nenhum pendente'}
                 />
                 <StatCard label="Clientes novos" value={stats.data.newCustomers} />
               </>
@@ -123,7 +123,7 @@ export default function DashboardPage() {
                           </span>
                         </div>
                         <div className="mt-1.5 h-1.5 rounded-full bg-gray-100">
-                          <div className="h-full rounded-full bg-[#35999A]" style={{ width: `${(p.revenueCents / max) * 100}%` }} />
+                          <div className="h-full rounded-full bg-brand-grape" style={{ width: `${(p.revenueCents / max) * 100}%` }} />
                         </div>
                       </li>
                     )
@@ -135,7 +135,7 @@ export default function DashboardPage() {
             <Card className="p-5">
               <div className="flex items-center justify-between">
                 <h2 className="font-semibold text-gray-900">Últimos pedidos</h2>
-                <Link href="/admin/pedidos" className="text-sm text-brand-teal">
+                <Link href="/admin/pedidos" className="text-sm text-brand-grape">
                   Ver todos
                 </Link>
               </div>
@@ -149,7 +149,7 @@ export default function DashboardPage() {
                 <ul className="mt-3 divide-y divide-black/5">
                   {recent.data.slice(0, 5).map((o) => (
                     <li key={o.id}>
-                      <Link href={`/admin/pedidos/${o.id}`} className="flex items-center justify-between gap-3 py-2.5 hover:bg-brand-sand/40 -mx-2 px-2 rounded-xl">
+                      <Link href={`/admin/pedidos/${o.id}`} className="flex items-center justify-between gap-3 py-2.5 hover:bg-brand-cream/40 -mx-2 px-2 rounded-xl">
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-gray-800 truncate">{o.name}</p>
                           <p className="text-xs text-gray-500 truncate">

@@ -20,7 +20,7 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center text-center py-14 px-6">
-      <div className="mb-4 rounded-full bg-brand-blush p-4 text-brand-coral">
+      <div className="mb-4 rounded-full bg-brand-blush p-4 text-brand-rose">
         <Icon size={28} />
       </div>
       <p className="font-semibold text-gray-900">{title}</p>

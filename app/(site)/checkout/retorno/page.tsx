@@ -31,7 +31,7 @@ function StatusIcon({ tone, children }: { tone: 'success' | 'warning' | 'danger'
 
 function OrderLine({ order }: { order: PublicOrder }) {
   return (
-    <div className="mt-6 rounded-2xl bg-brand-sand/70 px-4 py-3 text-sm flex items-center justify-between gap-4 text-left">
+    <div className="mt-6 rounded-2xl bg-brand-cream/70 px-4 py-3 text-sm flex items-center justify-between gap-4 text-left">
       <div className="min-w-0">
         <p className="font-medium text-gray-900 truncate">{order.packageTitle}</p>
         <p className="text-xs text-gray-500">Pedido {order.id}</p>

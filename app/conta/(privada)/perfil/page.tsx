@@ -61,7 +61,7 @@ export default function PerfilPage() {
         </Card>
         <Card className="p-6">
           <div className="flex items-center gap-2 text-gray-900 font-semibold">
-            <KeyRound size={18} className="text-brand-teal" /> Senha
+            <KeyRound size={18} className="text-brand-grape" /> Senha
           </div>
           <p className="mt-1 text-sm text-gray-600">Troque sua senha sempre que quiser.</p>
           <ButtonLink href="/conta/trocar-senha" variant="outline" size="sm" className="mt-4">

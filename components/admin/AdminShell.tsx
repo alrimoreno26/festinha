@@ -1,5 +1,6 @@
 'use client'
 
+import { BrandMark } from '@/components/brand/Decor'
 import { cn } from '@/lib/cn'
 import { useSession } from '@/lib/hooks/useSession'
 import { authService, qk } from '@/lib/services'
@@ -31,7 +32,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             onClick={onNavigate}
             className={cn(
               'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm',
-              active ? 'bg-brand-blush text-brand-coral-dark font-medium' : 'text-gray-600 hover:bg-black/5',
+              active ? 'bg-brand-blush text-brand-rose-dark font-semibold' : 'text-gray-600 hover:bg-black/5',
             )}
           >
             <Icon size={18} /> {label}
@@ -57,13 +58,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   }
 
   const brand = (
-    <Link href="/admin" className="flex items-center gap-2.5">
-      <img src="/logo-festinhas.png" alt="" className="h-10 w-10 object-contain" />
-      <div className="leading-tight">
-        <p className="font-bold text-brand-coral">Festinhas</p>
-        <p className="text-xs text-brand-teal">Backoffice</p>
-      </div>
-    </Link>
+    <BrandMark href="/admin" subtitle="Backoffice" size="sm" />
   )
 
   const footer = (
@@ -81,7 +76,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[240px_1fr]">
       {/* Desktop */}
-      <aside className="hidden lg:flex lg:flex-col lg:gap-6 sticky top-0 h-screen border-r border-black/5 bg-white/70 p-4">
+      <aside className="hidden lg:flex lg:flex-col lg:gap-6 sticky top-0 h-screen border-r border-brand-pink/30 bg-white/70 p-4">
         {brand}
         <div className="flex-1">
           <NavLinks />
@@ -90,7 +85,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Celular */}
-      <header className="lg:hidden sticky top-0 z-40 flex items-center justify-between border-b border-black/5 bg-white/90 backdrop-blur px-4 h-16">
+      <header className="lg:hidden sticky top-0 z-40 flex items-center justify-between border-b border-brand-pink/30 bg-white/90 backdrop-blur px-4 h-16">
         {brand}
         <button onClick={() => setOpen(true)} className="rounded-full p-2 hover:bg-black/5" aria-label="Abrir menu">
           <Menu size={22} />

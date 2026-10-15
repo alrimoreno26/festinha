@@ -162,7 +162,7 @@ export default function ClientePage({ params }: { params: { id: string } }) {
               <div>
                 <p className="text-gray-500">WhatsApp</p>
                 {customer.phone ? (
-                  <a href={waLink(customer.phone)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand-teal hover:underline">
+                  <a href={waLink(customer.phone)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand-grape hover:underline">
                     <MessageCircle size={14} /> {customer.phone}
                   </a>
                 ) : (
@@ -225,7 +225,7 @@ export default function ClientePage({ params }: { params: { id: string } }) {
                   <ul className="mt-3 divide-y divide-black/5">
                     {orders.map((o) => (
                       <li key={o.id}>
-                        <Link href={`/admin/pedidos/${o.id}`} className="flex items-center justify-between gap-3 py-2.5 -mx-2 px-2 rounded-xl hover:bg-brand-sand/40">
+                        <Link href={`/admin/pedidos/${o.id}`} className="flex items-center justify-between gap-3 py-2.5 -mx-2 px-2 rounded-xl hover:bg-brand-cream/40">
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-gray-800">{o.packageTitle}</p>
                             <p className="text-xs text-gray-500">

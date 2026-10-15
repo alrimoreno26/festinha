@@ -71,7 +71,7 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
       <Link href={`/pacotes/${pkg.slug}`} className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
         <ChevronLeft size={16} /> Voltar ao kit
       </Link>
-      <h1 className="mt-4 text-2xl md:text-3xl font-bold text-brand-cocoa">Finalizar compra</h1>
+      <h1 className="mt-4 text-2xl md:text-3xl font-bold text-brand-ink">Finalizar compra</h1>
 
       <div className="mt-6 grid gap-6 md:grid-cols-[1fr_340px] md:items-start">
         <Card className="p-6 order-2 md:order-1">
@@ -92,7 +92,7 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
                 type="checkbox"
                 checked={accepted}
                 onChange={(e) => setAccepted(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded accent-brand-coral"
+                className="mt-0.5 h-4 w-4 rounded accent-brand-rose"
               />
               <span>
                 Li e aceito os{' '}

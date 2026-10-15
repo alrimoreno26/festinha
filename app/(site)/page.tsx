@@ -1,5 +1,5 @@
 import { FeaturedKits } from '@/components/landing/FeaturedKits'
-import { Benefits, Contact, Gallery, Hero, Services } from '@/components/landing/Sections'
+import { About, Contact, Gallery, Hero, HowItWorks, Options, Themes } from '@/components/landing/Sections'
 
 const gallery = [
   { src: '/galeria/pacote-completo.png', alt: 'Pacote completo' },
@@ -13,9 +13,11 @@ export default function Page() {
   return (
     <>
       <Hero />
-      <Benefits />
+      <About />
+      <HowItWorks />
       <FeaturedKits />
-      <Services />
+      <Options />
+      <Themes />
       <Gallery items={gallery} />
       <Contact />
     </>

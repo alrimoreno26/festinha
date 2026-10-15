@@ -76,7 +76,7 @@ export default function PacotePage({ params }: { params: { slug: string } }) {
         </div>
 
         <div>
-          <h1 className="text-3xl md:text-4xl font-extrabold text-brand-cocoa">{pkg.title}</h1>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-brand-ink">{pkg.title}</h1>
           <p className="mt-3 text-gray-700 text-[17px] leading-relaxed">{pkg.description}</p>
 
           <div className="mt-6 flex items-end gap-4">
@@ -86,13 +86,13 @@ export default function PacotePage({ params }: { params: { slug: string } }) {
 
           <ul className="mt-4 grid gap-2 text-sm text-gray-700">
             <li className="flex items-center gap-2">
-              <Zap size={16} className="text-brand-teal" /> Liberação imediata após o pagamento
+              <Zap size={16} className="text-brand-grape" /> Liberação imediata após o pagamento
             </li>
             <li className="flex items-center gap-2">
-              <CreditCard size={16} className="text-brand-teal" /> Pix ou cartão de crédito
+              <CreditCard size={16} className="text-brand-grape" /> Pix ou cartão de crédito
             </li>
             <li className="flex items-center gap-2">
-              <CalendarClock size={16} className="text-brand-teal" /> {accessLabel(pkg.accessDays)} para baixar
+              <CalendarClock size={16} className="text-brand-grape" /> {accessLabel(pkg.accessDays)} para baixar
             </li>
           </ul>
 

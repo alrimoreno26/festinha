@@ -267,7 +267,7 @@ function Explorer() {
               <ul className="divide-y divide-black/5">
                 {folders.map((f) => (
                   <li key={f.path}>
-                    <Link href={`/admin/arquivos?pasta=${encodeURIComponent(f.path)}`} className="flex items-center gap-3 px-4 py-3 hover:bg-brand-sand/40">
+                    <Link href={`/admin/arquivos?pasta=${encodeURIComponent(f.path)}`} className="flex items-center gap-3 px-4 py-3 hover:bg-brand-cream/40">
                       <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
                         <Folder size={20} />
                       </span>

@@ -13,29 +13,31 @@ const steps = [
   { icon: Printer, title: 'Imprima e monte', desc: 'Recorte, cole e deixe a festa linda.' },
 ]
 
+const stepBg = ['bg-brand-pink/40', 'bg-brand-sun/50', 'bg-brand-mint/60', 'bg-brand-lilac/60']
+
 export default function PacotesPage() {
   const query = useQuery({ queryKey: qk.publicPackages, queryFn: packagesService.listPublic })
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-12 md:py-16">
       <div className="text-center max-w-2xl mx-auto mb-10">
-        <h1 className="text-3xl md:text-5xl font-extrabold text-brand-cocoa">
-          Kits digitais <span className="text-brand-coral">pega e monta</span>
+        <h1 className="text-4xl md:text-6xl font-bold text-brand-ink">
+          Kits digitais <span className="text-rainbow">pega e monta</span>
         </h1>
-        <p className="mt-4 text-gray-600 text-[17px]">
+        <p className="mt-4 text-[17px]">
           Arquivos prontos para imprimir em casa ou na gráfica. Escolha o tema, baixe na hora e monte sua festa.
         </p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-12">
         {steps.map(({ icon: Icon, title, desc }, i) => (
-          <div key={title} className="rounded-3xl bg-white/70 border border-black/5 p-4">
-            <div className="flex items-center gap-2 text-brand-teal">
+          <div key={title} className={`rounded-3xl p-4 ${stepBg[i]}`}>
+            <div className="flex items-center gap-2 text-brand-ink">
               <Icon size={18} />
               <span className="text-xs font-semibold">Passo {i + 1}</span>
             </div>
-            <p className="mt-2 font-semibold text-gray-900 text-sm">{title}</p>
-            <p className="text-xs text-gray-600 mt-0.5">{desc}</p>
+            <p className="mt-2 font-display font-semibold text-brand-ink">{title}</p>
+            <p className="text-xs mt-0.5">{desc}</p>
           </div>
         ))}
       </div>

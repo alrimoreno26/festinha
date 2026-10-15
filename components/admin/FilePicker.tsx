@@ -95,14 +95,14 @@ export function FilePicker({ open, onClose, files, selected, onConfirm }: FilePi
             return (
               <div key={folder}>
                 <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500 cursor-pointer">
-                  <input type="checkbox" className="accent-brand-coral" checked={all} onChange={() => toggleGroup(items)} />
+                  <input type="checkbox" className="accent-brand-rose" checked={all} onChange={() => toggleGroup(items)} />
                   {folder}
                 </label>
                 <ul className="mt-2 divide-y divide-black/5 rounded-2xl border border-black/5">
                   {items.map((f) => (
                     <li key={f.id}>
-                      <label className={cn('flex items-center gap-3 px-3 py-2 cursor-pointer', picked.has(f.id) && 'bg-brand-sand/60')}>
-                        <input type="checkbox" className="accent-brand-coral" checked={picked.has(f.id)} onChange={() => toggle(f.id)} />
+                      <label className={cn('flex items-center gap-3 px-3 py-2 cursor-pointer', picked.has(f.id) && 'bg-brand-cream/60')}>
+                        <input type="checkbox" className="accent-brand-rose" checked={picked.has(f.id)} onChange={() => toggle(f.id)} />
                         <FileIcon mime={f.mime} className="h-8 w-8" />
                         <span className="flex-1 min-w-0 truncate text-sm text-gray-800">{f.filename}</span>
                         <span className="text-xs text-gray-400 tabular-nums">{formatBytes(f.size)}</span>

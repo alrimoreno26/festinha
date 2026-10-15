@@ -1,3 +1,57 @@
-@tailwind base; 
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  h1,
+  h2 {
+    @apply font-display;
+  }
+}
+
+@layer components {
+  /* Faixa de blocos coloridos do topo e do rodapé do catálogo. */
+  .rainbow-stripe {
+    background: linear-gradient(
+      90deg,
+      #ffabe4 0 14.28%,
+      #ffc2af 0 28.57%,
+      #ffdb8a 0 42.85%,
+      #b5e7d5 0 57.14%,
+      #a6def5 0 71.42%,
+      #d9c7f5 0 85.71%,
+      #ffccef 0
+    );
+  }
+
+  /* Títulos grandes em degradê arco-íris (versão mais viva dos pastéis, com contorno para legibilidade). */
+  .text-rainbow {
+    background: linear-gradient(90deg, #e86ab3, #f08a6c, #e3a93a, #3fb08a, #3ea6d6, #8c69d6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 2px 0 #fff) drop-shadow(0 3px 0 rgb(74 51 96 / 0.18));
+  }
+
+  /* Borda de "nuvem" (semicírculos) pendurada embaixo de uma faixa colorida. Cor via `color`. */
+  .scallops {
+    height: 18px;
+    background: radial-gradient(circle at 18px 0, currentColor 18px, transparent 18.5px) 0 0 / 36px 18px repeat-x;
+  }
+
+  /* Confete pastel espalhado no fundo. */
+  .confetti {
+    background-image:
+      radial-gradient(circle at 8% 18%, rgb(255 171 228 / 0.35) 0 10px, transparent 11px),
+      radial-gradient(circle at 92% 12%, rgb(166 222 245 / 0.45) 0 14px, transparent 15px),
+      radial-gradient(circle at 80% 78%, rgb(255 219 138 / 0.45) 0 9px, transparent 10px),
+      radial-gradient(circle at 15% 85%, rgb(181 231 213 / 0.5) 0 12px, transparent 13px),
+      radial-gradient(circle at 50% 6%, rgb(217 199 245 / 0.5) 0 7px, transparent 8px),
+      radial-gradient(circle at 35% 60%, rgb(255 194 175 / 0.3) 0 6px, transparent 7px);
+  }
+
+  /* Cartão de borda tracejada lilás, como os blocos de "opções de kits". */
+  .card-dashed {
+    @apply rounded-3xl border-[3px] border-dashed border-brand-lilac bg-brand-blush;
+  }
+}

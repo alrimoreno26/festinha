@@ -18,7 +18,7 @@ export default function EsqueciSenhaPage() {
   }
 
   const backToLogin = (
-    <Link href="/conta/login" className="text-brand-teal hover:underline">
+    <Link href="/conta/login" className="text-brand-grape hover:underline">
       Voltar para o login
     </Link>
   )

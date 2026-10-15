@@ -23,7 +23,7 @@ const icons = { success: CheckCircle2, error: XCircle, info: Info }
 const toneClasses = {
   success: 'text-emerald-600',
   error: 'text-red-600',
-  info: 'text-brand-teal',
+  info: 'text-brand-grape',
 }
 
 let nextId = 1

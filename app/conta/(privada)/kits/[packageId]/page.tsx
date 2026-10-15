@@ -113,7 +113,7 @@ export default function KitPage({ params }: { params: { packageId: string } }) {
           <PackageCover src={kit.package.coverUrl} alt={kit.package.title} className="h-44 sm:h-full w-full" />
           <div className="p-5 sm:p-6">
             <EntitlementBadge status={kit.status} />
-            <h1 className="mt-2 text-2xl font-bold text-brand-cocoa">{kit.package.title}</h1>
+            <h1 className="mt-2 text-2xl font-bold text-brand-ink">{kit.package.title}</h1>
             <p className="mt-1 text-sm text-gray-600">{kit.package.description}</p>
             <p className={kit.status === 'expiring' ? 'mt-3 text-sm font-medium text-amber-700' : 'mt-3 text-sm text-gray-500'}>
               {expiryText(kit.entitlement)}

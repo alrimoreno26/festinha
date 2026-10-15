@@ -1,5 +1,6 @@
 'use client'
 
+import { SectionTitle } from '@/components/brand/Decor'
 import { PackageCard, PackageCardSkeleton } from '@/components/catalog/PackageCard'
 import { ButtonLink } from '@/components/ui'
 import { packagesService, qk } from '@/lib/services'
@@ -13,8 +14,7 @@ export function FeaturedKits() {
   return (
     <section id="kits" className="py-16 md:py-24">
       <div className="max-w-6xl mx-auto px-4">
-        <h2 className="text-3xl md:text-4xl font-bold text-center mb-2 text-brand-cocoa">Kits digitais pega e monta</h2>
-        <p className="text-center text-gray-600 mb-10">Compre, baixe na hora, imprima em casa e monte sua festa.</p>
+        <SectionTitle subtitle="Compre, baixe na hora, imprima em casa e monte sua festa.">Kits pega e monta</SectionTitle>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {query.isPending
             ? Array.from({ length: 3 }, (_, i) => <PackageCardSkeleton key={i} />)

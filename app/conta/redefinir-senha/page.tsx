@@ -44,7 +44,7 @@ function RedefinirForm() {
       title="Criar nova senha"
       description="Escolha uma senha com pelo menos 8 caracteres."
       footer={
-        <Link href="/conta/esqueci-senha" className="text-brand-teal hover:underline">
+        <Link href="/conta/esqueci-senha" className="text-brand-grape hover:underline">
           Pedir um novo link
         </Link>
       }

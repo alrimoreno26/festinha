@@ -82,7 +82,7 @@ export function DevToolbar() {
         className="fixed bottom-24 sm:bottom-4 left-3 sm:left-auto sm:right-4 z-[80] flex items-center gap-2 rounded-full bg-gray-900/90 sm:bg-gray-900 px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-medium text-white shadow-lg hover:bg-gray-800"
       >
         <Wrench size={16} /> Dev
-        {unread > 0 && <span className="rounded-full bg-brand-coral px-1.5 text-xs">{unread}</span>}
+        {unread > 0 && <span className="rounded-full bg-brand-rose px-1.5 text-xs">{unread}</span>}
       </button>
     )
   }
@@ -111,7 +111,7 @@ export function DevToolbar() {
             onClick={() => selectTab(key)}
             className={cn(
               'px-3 py-2 text-sm border-b-2 -mb-px',
-              tab === key ? 'border-brand-coral text-brand-coral font-medium' : 'border-transparent text-gray-500 hover:text-gray-800',
+              tab === key ? 'border-brand-rose text-brand-rose font-medium' : 'border-transparent text-gray-500 hover:text-gray-800',
             )}
           >
             {label}
@@ -252,7 +252,7 @@ function SessionTab() {
         </div>
       </Section>
       <Section title="Atalhos">
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-brand-teal">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-brand-grape">
           <Link href="/">Landing</Link>
           <Link href="/pacotes">Catálogo</Link>
           <Link href="/conta">Área do cliente</Link>
@@ -341,7 +341,7 @@ function EmailsTab() {
           </p>
           <p className="mt-2 whitespace-pre-line text-gray-700">{email.body}</p>
           {email.actionUrl && (
-            <Link href={email.actionUrl} className="mt-2 inline-block font-medium text-brand-teal">
+            <Link href={email.actionUrl} className="mt-2 inline-block font-medium text-brand-grape">
               {email.actionLabel ?? 'Abrir'} →
             </Link>
           )}

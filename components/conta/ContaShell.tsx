@@ -1,5 +1,6 @@
 'use client'
 
+import { BrandMark, RainbowStripe } from '@/components/brand/Decor'
 import { cn } from '@/lib/cn'
 import { useSession } from '@/lib/hooks/useSession'
 import { authService, qk } from '@/lib/services'
@@ -32,15 +33,10 @@ export function ContaShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur border-b border-black/5">
+      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur border-b border-brand-pink/30">
+        <RainbowStripe />
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-2.5 shrink-0">
-            <img src="/logo-festinhas.png" alt="" className="h-10 w-10 object-contain" />
-            <div className="leading-tight">
-              <p className="font-bold text-brand-coral">Festinhas</p>
-              <p className="text-xs text-brand-teal">Área do Cliente</p>
-            </div>
-          </Link>
+          <BrandMark subtitle="Área do Cliente" size="sm" />
           {!locked && (
             <nav className="hidden sm:flex items-center gap-1">
               {nav.map(({ href, label, icon: Icon, match }) => (
@@ -49,7 +45,7 @@ export function ContaShell({ children }: { children: ReactNode }) {
                   href={href}
                   className={cn(
                     'inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm',
-                    match(pathname) ? 'bg-brand-blush text-brand-coral-dark font-medium' : 'text-gray-600 hover:bg-black/5',
+                    match(pathname) ? 'bg-brand-blush text-brand-rose-dark font-medium' : 'text-gray-600 hover:bg-black/5',
                   )}
                 >
                   <Icon size={16} /> {label}
@@ -75,7 +71,7 @@ export function ContaShell({ children }: { children: ReactNode }) {
             <Link
               key={href}
               href={href}
-              className={cn('flex flex-col items-center gap-0.5 py-2.5 text-xs', match(pathname) ? 'text-brand-coral font-medium' : 'text-gray-500')}
+              className={cn('flex flex-col items-center gap-0.5 py-2.5 text-xs', match(pathname) ? 'text-brand-rose font-medium' : 'text-gray-500')}
             >
               <Icon size={20} /> {label}
             </Link>

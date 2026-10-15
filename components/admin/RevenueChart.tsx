@@ -59,7 +59,7 @@ export function RevenueChart({ data }: { data: Point[] }) {
                     className="w-full rounded-t-[4px] transition-opacity"
                     style={{
                       height: d.revenueCents ? `${Math.max(2, (d.revenueCents / top) * 100)}%` : 0,
-                      background: '#35999A',
+                      background: '#6E4FB8',
                       opacity: hover === null || hover === i ? 1 : 0.45,
                     }}
                   />

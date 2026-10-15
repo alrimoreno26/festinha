@@ -51,13 +51,13 @@ export function Dropzone({
       }}
       className={cn(
         'flex flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed px-6 py-10 text-center transition-colors cursor-pointer',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal',
-        dragging ? 'border-brand-teal bg-brand-teal/5' : 'border-gray-300 bg-white hover:border-brand-teal/60',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-grape',
+        dragging ? 'border-brand-grape bg-brand-grape/5' : 'border-gray-300 bg-white hover:border-brand-grape/60',
         disabled && 'opacity-60 cursor-not-allowed',
         className,
       )}
     >
-      <UploadCloud className={dragging ? 'text-brand-teal' : 'text-gray-400'} size={32} />
+      <UploadCloud className={dragging ? 'text-brand-grape' : 'text-gray-400'} size={32} />
       <p className="text-sm font-medium text-gray-700">{title}</p>
       {hint && <p className="text-xs text-gray-500">{hint}</p>}
       <input
@@ -76,7 +76,7 @@ export function Dropzone({
 }
 
 export function ProgressBar({ value, tone = 'teal' }: { value: number; tone?: 'teal' | 'coral' | 'danger' }) {
-  const color = { teal: 'bg-brand-teal', coral: 'bg-brand-coral', danger: 'bg-red-500' }[tone]
+  const color = { teal: 'bg-brand-grape', coral: 'bg-brand-rose', danger: 'bg-red-500' }[tone]
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-black/[.06]" role="progressbar" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100}>
       <div className={cn('h-full rounded-full transition-[width] duration-200', color)} style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />

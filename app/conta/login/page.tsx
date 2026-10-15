@@ -45,7 +45,7 @@ function LoginForm() {
       description="Use o email da compra e a senha que enviamos para você."
       footer={
         <>
-          <Link href="/conta/esqueci-senha" className="text-brand-teal hover:underline">
+          <Link href="/conta/esqueci-senha" className="text-brand-grape hover:underline">
             Esqueci minha senha
           </Link>
           <Link href="/pacotes" className="text-gray-500 hover:underline">

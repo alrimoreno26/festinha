@@ -15,7 +15,7 @@ function KitCard({ kit }: { kit: MyKit }) {
   const available = canDownload(kit.status)
   return (
     <Link href={`/conta/kits/${kit.package.id}`} className="group block focus-visible:outline-none">
-      <Card className={cn('overflow-hidden h-full flex flex-col transition-shadow group-hover:shadow-md group-focus-visible:ring-2 group-focus-visible:ring-brand-teal')}>
+      <Card className={cn('overflow-hidden h-full flex flex-col transition-shadow group-hover:shadow-md group-focus-visible:ring-2 group-focus-visible:ring-brand-grape')}>
         <div className="relative">
           <PackageCover src={kit.package.coverUrl} alt={kit.package.title} className={cn('h-40 w-full', !available && 'grayscale opacity-60')} />
           <div className="absolute top-3 left-3">
@@ -30,7 +30,7 @@ function KitCard({ kit }: { kit: MyKit }) {
           <p className={cn('mt-2 text-sm', kit.status === 'expiring' ? 'text-amber-700 font-medium' : 'text-gray-600')}>
             {expiryText(kit.entitlement)}
           </p>
-          <span className={cn('mt-auto pt-4 text-sm font-medium', available ? 'text-brand-coral' : 'text-gray-500')}>
+          <span className={cn('mt-auto pt-4 text-sm font-medium', available ? 'text-brand-rose' : 'text-gray-500')}>
             {available ? 'Abrir e baixar →' : 'Ver detalhes →'}
           </span>
         </div>

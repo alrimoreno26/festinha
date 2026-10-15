@@ -49,7 +49,9 @@ export function DevToolbar() {
     setMounted(true)
     try {
       setOpen(localStorage.getItem(OPEN_KEY) === '1')
-      setSeenIds(JSON.parse(localStorage.getItem(SEEN_KEY) ?? '[]'))
+      // Pode haver lixo de versões antigas no localStorage: só aceita lista de strings.
+      const saved: unknown = JSON.parse(localStorage.getItem(SEEN_KEY) ?? '[]')
+      setSeenIds(Array.isArray(saved) ? saved.filter((id): id is string => typeof id === 'string') : [])
     } catch {}
   }, [])
 

@@ -1,4 +1,5 @@
 import { cn } from '@/lib/cn'
+import { DELIVERY_LABEL, KIND_LABEL } from '@/lib/labels'
 import type { DeliveryMethod, EntitlementStatus, OrderStatus, PackageKind, PaymentMethod, ProductionStatus } from '@/lib/types'
 import type { ReactNode } from 'react'
 
@@ -39,9 +40,9 @@ export const ENTITLEMENT_STATUS: Record<EntitlementStatus, { label: string; tone
 export const PAYMENT_METHOD: Record<PaymentMethod, string> = { pix: 'Pix', card: 'Cartão' }
 
 export const PACKAGE_KIND: Record<PackageKind, { label: string; short: string; tone: BadgeTone }> = {
-  digital: { label: 'Kit digital pronto', short: 'Digital', tone: 'info' },
-  custom_digital: { label: 'Personalizado digital', short: 'Personalizado', tone: 'brand' },
-  printed: { label: 'Kit impresso', short: 'Impresso', tone: 'warning' },
+  digital: { label: KIND_LABEL.digital, short: 'Digital', tone: 'info' },
+  custom_digital: { label: KIND_LABEL.custom_digital, short: 'Personalizado', tone: 'brand' },
+  printed: { label: KIND_LABEL.printed, short: 'Impresso', tone: 'warning' },
 }
 
 export const PRODUCTION_STATUS: Record<ProductionStatus, { label: string; tone: BadgeTone }> = {
@@ -50,11 +51,7 @@ export const PRODUCTION_STATUS: Record<ProductionStatus, { label: string; tone: 
   delivered: { label: 'Entregue', tone: 'success' },
 }
 
-export const DELIVERY_METHOD: Record<DeliveryMethod, string> = {
-  download: 'Download na Área do Cliente',
-  pickup: 'Retirada no local',
-  delivery: 'Entrega (motoboy/aplicativo)',
-}
+export const DELIVERY_METHOD: Record<DeliveryMethod, string> = DELIVERY_LABEL
 
 export function KindBadge({ kind }: { kind: PackageKind }) {
   const { short, tone } = PACKAGE_KIND[kind]

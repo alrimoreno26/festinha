@@ -8,6 +8,8 @@ import * as messages from '../email/messages'
 import * as t from '../db/schema'
 import type { Db } from '../db/types'
 import { newId } from '../ids'
+import { emailConfig } from '../email/mailer'
+import { notifyTelegram, orderPaidMessage } from '../telegram'
 
 export interface EmailInput {
   to: string
@@ -103,6 +105,26 @@ export async function approveOrder(db: Db, orderId: string) {
     .update(t.orders)
     .set({ status: 'approved', paidAt: new Date(), userId: user.id, simulatedApproveAt: null, productionStatus: madeToOrder ? 'in_production' : null })
     .where(eq(t.orders.id, orderId))
+
+  // Aviso para a loja (Telegram), na mesma transação: só sai se o pedido foi mesmo aprovado.
+  await notifyTelegram(
+    db,
+    orderPaidMessage({
+      orderId,
+      packageTitle: pkg.title,
+      packageKind: pkg.kind,
+      amountCents: order.amountCents,
+      method: order.method,
+      name: order.name,
+      email: order.email,
+      phone: order.phone,
+      customization: order.customization,
+      deliveryMethod: order.deliveryMethod,
+      deliveryAddress: order.deliveryAddress,
+      newCustomer: !!tempPassword,
+      appUrl: emailConfig().appUrl,
+    }),
+  )
 
   if (madeToOrder) {
     await sendEmail(db, {

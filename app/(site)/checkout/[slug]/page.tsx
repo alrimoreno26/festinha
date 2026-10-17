@@ -119,7 +119,9 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
               <div className="space-y-4 border-t border-brand-pink/30 pt-5">
                 <div>
                   <h2 className="font-semibold text-gray-900">Personalização</h2>
-                  <p className="text-sm text-gray-500">Conte como você quer o seu kit. Se precisarmos de algo, chamamos no WhatsApp. 💕</p>
+                  <p className="text-sm text-gray-500">
+                    Conte como você quer o seu kit. Se quiser completar ou ajustar algum detalhe, você tem até 48 horas pelo WhatsApp. 💕
+                  </p>
                 </div>
                 {needsName(pkg) && (
                   <div className="grid gap-4 sm:grid-cols-[1fr_140px]">
@@ -194,18 +196,18 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
                 className="mt-0.5 h-4 w-4 rounded accent-brand-rose"
               />
               <span>
-                Li e aceito os{' '}
-                <a href="#" className="underline">
-                  termos de uso
-                </a>{' '}
+                Li e aceito as{' '}
+                <Link href="/informacoes#condicoes" target="_blank" className="underline">
+                  condições do pedido
+                </Link>{' '}
                 e a{' '}
-                <a href="#" className="underline">
-                  política de privacidade
-                </a>
+                <Link href="/informacoes#cancelamento" target="_blank" className="underline">
+                  política de cancelamento
+                </Link>
                 .{' '}
                 {pkg.kind === 'digital'
                   ? 'Os arquivos são para uso pessoal e não podem ser revendidos.'
-                  : 'Conferi os detalhes da personalização; mudanças depois da aprovação da arte podem ter custo extra.'}
+                  : 'Alterações na arte podem ser pedidas em até 48 horas após a aprovação.'}
               </span>
             </label>
 

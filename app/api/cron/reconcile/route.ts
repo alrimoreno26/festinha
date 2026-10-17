@@ -1,6 +1,7 @@
 import * as payments from '@/lib/server/domain/payments'
 import { dispatchPendingEmails } from '@/lib/server/email/dispatch'
 import { db, route } from '@/lib/server/http'
+import { dispatchPendingTelegram } from '@/lib/server/telegram'
 import { ServiceError } from '@/lib/services/errors'
 
 /**
@@ -13,7 +14,8 @@ export const GET = route(async ({ req }) => {
   const reconciled = await payments.reconcilePending(db)
   // Reenvia emails que falharam (o despacho normal acontece logo após cada operação).
   const emails = await dispatchPendingEmails(db, { limit: 100 })
-  return { reconciled, emails }
+  const telegram = await dispatchPendingTelegram(db)
+  return { reconciled, emails, telegram }
 })
 
 export const maxDuration = 60

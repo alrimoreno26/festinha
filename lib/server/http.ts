@@ -8,6 +8,7 @@ import { waitUntil } from '@vercel/functions'
 import { db } from './db'
 import * as auth from './domain/auth'
 import { dispatchPendingEmails } from './email/dispatch'
+import { dispatchPendingTelegram } from './telegram'
 import type { Actor } from './guards'
 
 export const SESSION_COOKIE = 'fs_session'
@@ -102,7 +103,10 @@ export function route<P = Record<string, never>>(fn: (ctx: RouteContext<P>) => P
       const result = await fn({ req, params, actor, sessionToken: token })
       // Operações que alteram dados podem ter enfileirado emails: envia em segundo plano,
       // sem atrasar a resposta (na Vercel o waitUntil mantém a função viva até terminar).
-      if (emails ?? MUTATING.has(req.method)) waitUntil(dispatchPendingEmails(db).catch((err) => console.error('[email] despacho falhou', err)))
+      if (emails ?? MUTATING.has(req.method)) {
+        waitUntil(dispatchPendingEmails(db).catch((err) => console.error('[email] despacho falhou', err)))
+        waitUntil(dispatchPendingTelegram(db).catch((err) => console.error('[telegram] despacho falhou', err)))
+      }
       if (result instanceof Response) return result
       return NextResponse.json(result ?? null, { headers: { 'Cache-Control': 'no-store' } })
     } catch (err) {

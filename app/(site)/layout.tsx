@@ -2,6 +2,7 @@ import { Balloons, RainbowStripe, Wave } from '@/components/brand/Decor'
 import Navbar from '@/components/landing/Navbar'
 import { BRAND, instagramUrl, whatsappUrl } from '@/lib/brand'
 import { Instagram, Mail, MessageCircle } from 'lucide-react'
+import Link from 'next/link'
 import type { ReactNode } from 'react'
 
 const contacts = [
@@ -44,6 +45,20 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
             </div>
             <Balloons className="hidden lg:block absolute -top-44 right-2" />
           </div>
+          <nav aria-label="Informações" className="flex flex-wrap justify-center gap-x-5 gap-y-1 pb-3 text-sm font-semibold text-brand-ink">
+            <Link href="/informacoes#pagamento" className="hover:underline">
+              Formas de pagamento
+            </Link>
+            <Link href="/informacoes#condicoes" className="hover:underline">
+              Condições do pedido
+            </Link>
+            <Link href="/informacoes#entrega" className="hover:underline">
+              Entrega
+            </Link>
+            <Link href="/informacoes#cancelamento" className="hover:underline">
+              Cancelamento
+            </Link>
+          </nav>
           <p className="pb-6 text-center text-xs font-semibold text-brand-ink/80">
             © {new Date().getFullYear()} {BRAND.fullName} · Feito com muito carinho 💕
           </p>

@@ -267,6 +267,22 @@ export const emailOutbox = pgTable(
   (t) => [index('email_outbox_created_idx').on(t.createdAt), index('email_outbox_pending_idx').on(t.sentAt, t.nextAttemptAt)],
 )
 
+/** Avisos para a dona da loja no Telegram (ex.: pedido pago). Mesma lógica de reenvio dos emails. */
+export const telegramOutbox = pgTable(
+  'telegram_outbox',
+  {
+    id: text('id').primaryKey(),
+    /** Mensagem já formatada (HTML do Telegram). */
+    text: text('text').notNull(),
+    createdAt: createdAt(),
+    sentAt: tstz('sent_at'),
+    attempts: integer('attempts').notNull().default(0),
+    lastError: text('last_error'),
+    nextAttemptAt: tstz('next_attempt_at').notNull().defaultNow(),
+  },
+  (t) => [index('telegram_outbox_pending_idx').on(t.sentAt, t.nextAttemptAt)],
+)
+
 /**
  * Avisos recebidos dos webhooks (Mercado Pago). Servem para não processar o mesmo aviso duas vezes
  * e para investigar problemas ("o MP avisou? o que respondemos?").

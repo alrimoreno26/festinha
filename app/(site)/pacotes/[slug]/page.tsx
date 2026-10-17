@@ -19,13 +19,13 @@ const FAQ: Record<PackageKind, { q: string; a: string }[]> = {
     pixFaq,
   ],
   custom_digital: [
-    { q: 'Como envio os dados da personalização?', a: 'No checkout você informa o nome, a idade, o tema, as cores e o que mais quiser. Se precisarmos de algo, chamamos no WhatsApp.' },
+    { q: 'Como envio os dados da personalização?', a: 'No checkout você informa o nome, a idade, o tema, as cores e o que mais quiser. Para completar algum detalhe, você tem até 48 horas pelo WhatsApp.' },
     { q: 'Quando recebo a arte?', a: 'O prazo é combinado conforme o modelo. Quando a arte fica pronta, avisamos por email e os arquivos aparecem na sua Área do Cliente, em Pedidos.' },
-    { q: 'Posso pedir alterações?', a: 'Ajustes combinados durante a criação estão incluídos. Mudanças depois da aprovação final podem ter custo extra, sempre combinado antes.' },
+    { q: 'Posso pedir alterações?', a: 'Sim: as alterações na arte podem ser pedidas em até 48 horas após a aprovação. Depois desse prazo não é possível fazer novas mudanças.' },
   ],
   printed: [
-    { q: 'Como recebo o kit impresso?', a: 'Você pode retirar no local, em horário combinado, ou receber por motoboy/aplicativo. O valor da entrega é calculado pela distância e combinado pelo WhatsApp (não está incluso no preço).' },
-    { q: 'Como envio os dados da personalização?', a: 'No checkout você informa o nome, a idade, o tema, as cores e o que mais quiser. Se precisarmos de algo, chamamos no WhatsApp.' },
+    { q: 'Como recebo o kit impresso?', a: 'Você pode retirar no local, em horário combinado, ou receber por motoboy/aplicativo. A entrega está sujeita à disponibilidade e o valor é calculado pela distância, combinado antes com você (não está incluso no preço).' },
+    { q: 'Como envio os dados da personalização?', a: 'No checkout você informa o nome, a idade, o tema, as cores e o que mais quiser. Para completar algum detalhe, você tem até 48 horas pelo WhatsApp.' },
     { q: 'Qual é o prazo?', a: 'O prazo de produção é combinado conforme o modelo e a personalização escolhidos.' },
   ],
 }

@@ -101,7 +101,7 @@ export function orderReceived(p: {
     : ''
   return {
     subject: `Recebemos seu pedido: ${p.kit} 💕`,
-    body: `Olá, ${p.name}! Seu pagamento foi confirmado. ${next}${customizationLines(p.customization)}\n\nSe algo estiver diferente, é só responder este email ou chamar no WhatsApp.${access}`,
+    body: `Olá, ${p.name}! Seu pagamento foi confirmado. ${next}${customizationLines(p.customization)}\n\nSe quiser completar ou ajustar algum detalhe, você tem até 48 horas: é só responder este email ou chamar no WhatsApp.${access}`,
     actionUrl: p.tempPassword ? '/conta/login' : '/conta/pedidos',
     actionLabel: 'Acompanhar pedido',
   }

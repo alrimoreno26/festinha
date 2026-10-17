@@ -17,7 +17,8 @@
     "test:watch": "vitest",
     "admin:create": "tsx --conditions=react-server --env-file=.env.local scripts/admin-create.ts",
     "db:wipe": "tsx --conditions=react-server --env-file=.env.local scripts/db-wipe.ts",
-    "catalog:load": "tsx --conditions=react-server --env-file=.env.local scripts/catalog-load.ts"
+    "catalog:load": "tsx --conditions=react-server --env-file=.env.local scripts/catalog-load.ts",
+    "telegram:setup": "tsx --conditions=react-server --env-file=.env.local scripts/telegram-setup.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1141.0",

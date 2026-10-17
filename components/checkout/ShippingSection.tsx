@@ -114,7 +114,7 @@ export function ShippingSection({
   ]
 
   return (
-    <fieldset className="space-y-3 border-t border-brand-pink/30 pt-5">
+    <fieldset className="space-y-3">
       <legend className="font-semibold text-gray-900">Como você quer receber?</legend>
       <div className="grid gap-3 sm:grid-cols-2">
         {choices.map(({ value: v, icon: Icon, title, desc }) => (
@@ -192,6 +192,8 @@ export function ShippingSection({
                 {errors.shippingServiceId && <p className="text-sm text-red-600">{errors.shippingServiceId}</p>}
                 <p className="text-xs text-gray-500">O prazo conta a partir do envio, depois da produção do seu kit.</p>
               </div>
+            ) : errors.shippingServiceId && !quoteError ? (
+              <p className="text-sm text-red-600">{errors.shippingServiceId}</p>
             ) : null}
           </div>
 

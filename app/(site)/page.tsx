@@ -2,11 +2,13 @@ import { FeaturedKits } from '@/components/landing/FeaturedKits'
 import { About, Contact, Gallery, Hero, HowItWorks, Options, Themes } from '@/components/landing/Sections'
 
 const gallery = [
-  { src: '/galeria/pacote-completo.png', alt: 'Pacote completo' },
-  { src: '/galeria/pacote-individuais-01.png', alt: 'Pacote individuais 1' },
-  { src: '/galeria/pacote-individuais-02.jpg', alt: 'Pacote individuais 2' },
-  { src: '/galeria/cartaz-papelaria-1.png', alt: 'Cartaz 1' },
-  { src: '/galeria/cartaz-papelaria-2.png', alt: 'Cartaz 2' },
+  { src: '/galeria/colecao-festinhas.webp', alt: 'Caixinhas, plaquinhas de mesa e livrinhos de colorir personalizados' },
+  { src: '/galeria/caixinhas-personalizadas.webp', alt: 'Caixinhas personalizadas: milk, meia bala, cone e bem-casado' },
+  { src: '/galeria/plaquinhas-de-mesa.webp', alt: 'Plaquinhas de mesa personalizadas com nome e idade' },
+  { src: '/galeria/tags-personalizadas.webp', alt: 'Tags personalizadas para lembrancinhas' },
+  { src: '/galeria/livrinhos-de-colorir.webp', alt: 'Livrinhos de colorir com vários temas' },
+  { src: '/galeria/tema-individual.webp', alt: 'Caixinhas de chá revelação com tema de ursinhos' },
+  { src: '/galeria/personalizado-digital.webp', alt: 'Caixa milk personalizada com o nome Heloísa, 1 aninho' },
 ]
 
 export default function Page() {

@@ -73,18 +73,23 @@ export function createSeed(): SeedData {
     f('fil_gen2', 'extras/moldes-basicos.pdf', 1_300_000, PDF, 100),
   ]
 
-  const p = (data: Omit<Package, 'createdAt' | 'updatedAt'>, days: number): Package => ({
+  type PackageSeed = Omit<Package, 'createdAt' | 'updatedAt' | 'kind' | 'items' | 'customizationLevel'> &
+    Partial<Pick<Package, 'kind' | 'items' | 'customizationLevel'>>
+  const p = (data: PackageSeed, days: number): Package => ({
+    kind: 'digital',
+    items: [],
+    customizationLevel: 'none',
     ...data,
     createdAt: ago(days),
     updatedAt: ago(Math.max(0, days - 5)),
   })
 
   const packages: Package[] = [
-    p({ id: 'pkg_safari', slug: 'kit-safari', title: 'Kit Safári', description: 'Topo de bolo, toppers, bandeirinhas, caixinha milk e convite editável com a turma do safári. Pronto para imprimir, recortar e montar.', coverUrl: '/galeria/pacote-completo.png', priceCents: 4990, active: true, accessDays: null, fileIds: ['fil_saf1', 'fil_saf2', 'fil_saf3', 'fil_saf4', 'fil_saf5', 'fil_gen1'] }, 90),
-    p({ id: 'pkg_mar', slug: 'kit-fundo-do-mar', title: 'Kit Fundo do Mar', description: 'Tudo para uma festa no fundo do mar: topo de bolo, toppers, rótulos e o kit completo em ZIP.', coverUrl: '/galeria/pacote-individuais-01.png', priceCents: 5990, active: true, accessDays: 30, fileIds: ['fil_mar1', 'fil_mar2', 'fil_mar3', 'fil_mar4', 'fil_gen1'] }, 70),
-    p({ id: 'pkg_princesas', slug: 'kit-princesas', title: 'Kit Princesas', description: 'Topo de bolo, tags de lembrancinha e painel 60x90 para uma festa encantada.', coverUrl: '/galeria/pacote-individuais-02.jpg', priceCents: 6990, active: true, accessDays: 30, fileIds: ['fil_pri1', 'fil_pri2', 'fil_pri3', 'fil_gen1', 'fil_gen2'] }, 50),
-    p({ id: 'pkg_futebol', slug: 'kit-futebol', title: 'Kit Futebol', description: 'Kit para os pequenos craques: topo de bolo, bandeirinhas e caixa bombom.', coverUrl: '/galeria/cartaz-papelaria-1.png', priceCents: 3990, active: true, accessDays: null, fileIds: ['fil_fut1', 'fil_fut2', 'fil_fut3'] }, 30),
-    p({ id: 'pkg_unicornio', slug: 'kit-unicornio', title: 'Kit Unicórnio', description: 'Em breve! Kit unicórnio com tons pastel.', coverUrl: '/galeria/cartaz-papelaria-2.png', priceCents: 5490, active: false, accessDays: null, fileIds: ['fil_uni1'] }, 10),
+    p({ id: 'pkg_safari', slug: 'kit-safari', title: 'Kit Safári', description: 'Topo de bolo, toppers, bandeirinhas, caixinha milk e convite editável com a turma do safári. Pronto para imprimir, recortar e montar.', coverUrl: '/galeria/colecao-festinhas.webp', priceCents: 4990, active: true, accessDays: null, fileIds: ['fil_saf1', 'fil_saf2', 'fil_saf3', 'fil_saf4', 'fil_saf5', 'fil_gen1'] }, 90),
+    p({ id: 'pkg_mar', slug: 'kit-fundo-do-mar', title: 'Kit Fundo do Mar', description: 'Tudo para uma festa no fundo do mar: topo de bolo, toppers, rótulos e o kit completo em ZIP.', coverUrl: '/galeria/caixinhas-personalizadas.webp', priceCents: 5990, active: true, accessDays: 30, fileIds: ['fil_mar1', 'fil_mar2', 'fil_mar3', 'fil_mar4', 'fil_gen1'] }, 70),
+    p({ id: 'pkg_princesas', slug: 'kit-princesas', title: 'Kit Princesas', description: 'Topo de bolo, tags de lembrancinha e painel 60x90 para uma festa encantada.', coverUrl: '/galeria/plaquinhas-de-mesa.webp', priceCents: 6990, active: true, accessDays: 30, fileIds: ['fil_pri1', 'fil_pri2', 'fil_pri3', 'fil_gen1', 'fil_gen2'] }, 50),
+    p({ id: 'pkg_futebol', slug: 'kit-futebol', title: 'Kit Futebol', description: 'Kit para os pequenos craques: topo de bolo, bandeirinhas e caixa bombom.', coverUrl: '/galeria/tags-personalizadas.webp', priceCents: 3990, active: true, accessDays: null, fileIds: ['fil_fut1', 'fil_fut2', 'fil_fut3'] }, 30),
+    p({ id: 'pkg_unicornio', slug: 'kit-unicornio', title: 'Kit Unicórnio', description: 'Em breve! Kit unicórnio com tons pastel.', coverUrl: '/galeria/livrinhos-de-colorir.webp', priceCents: 5490, active: false, accessDays: null, fileIds: ['fil_uni1'] }, 10),
   ]
 
   const o = (
@@ -109,6 +114,10 @@ export function createSeed(): SeedData {
     method,
     createdAt: ago(days),
     paidAt: status === 'pending' || status === 'rejected' ? null : ago(days),
+    customization: null,
+    deliveryMethod: 'download',
+    deliveryAddress: null,
+    productionStatus: null,
   })
 
   const orders: Order[] = [

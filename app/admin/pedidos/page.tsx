@@ -1,6 +1,28 @@
 'use client'
 
-import { Button, Card, EmptyState, Input, ORDER_STATUS, OrderStatusBadge, PageHeader, PageLoader, PAYMENT_METHOD, QueryState, Select, Table, TBody, TD, TH, THead, TR, useToast } from '@/components/ui'
+import {
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  KindBadge,
+  ORDER_STATUS,
+  OrderStatusBadge,
+  PageHeader,
+  PageLoader,
+  PAYMENT_METHOD,
+  ProductionBadge,
+  QueryState,
+  Select,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
+  useToast,
+} from '@/components/ui'
+import { cn } from '@/lib/cn'
 import { formatBRL, formatDateTime } from '@/lib/format'
 import { errorMessage, ordersService, qk } from '@/lib/services'
 import type { OrderFilters } from '@/lib/services/orders'
@@ -25,6 +47,7 @@ function Pedidos() {
   const params = useSearchParams()
   const status = (params.get('status') ?? 'all') as OrderFilters['status']
   const days = Number(params.get('dias') ?? 0) || undefined
+  const toProduce = params.get('producao') === '1'
   const [search, setSearch] = useState(params.get('q') ?? '')
   const debounced = useDebounced(search)
 
@@ -47,7 +70,7 @@ function Pedidos() {
       toast.success(checked ? `${checked} pendentes verificados no Mercado Pago; ${updated} atualizados.` : 'Nenhum pedido pendente para verificar.'),
     onError: (err) => toast.error(errorMessage(err)),
   })
-  const filters: OrderFilters = { status, days, search: debounced }
+  const filters: OrderFilters = { status, days, search: debounced, toProduce }
   const query = useQuery({ queryKey: qk.orders(filters), queryFn: () => ordersService.list(filters), placeholderData: (prev) => prev })
   const total = query.data?.filter((o) => o.status === 'approved').reduce((s, o) => s + o.amountCents, 0) ?? 0
 
@@ -62,6 +85,25 @@ function Pedidos() {
           </Button>
         }
       />
+
+      <div className="mb-4 inline-flex rounded-full bg-white p-1 ring-1 ring-black/5">
+        {[
+          { label: 'Todos', value: false },
+          { label: 'A produzir', value: true },
+        ].map((tab) => (
+          <button
+            key={tab.label}
+            type="button"
+            onClick={() => setParam('producao', tab.value ? '1' : null)}
+            className={cn(
+              'rounded-full px-4 py-1.5 text-sm font-semibold transition-colors',
+              toProduce === tab.value ? 'bg-brand-rose text-white' : 'text-gray-600 hover:bg-black/5',
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       <div className="mb-4 grid gap-3 sm:grid-cols-[1fr_180px_160px]">
         <div className="relative">
@@ -88,7 +130,11 @@ function Pedidos() {
         query={query}
         empty={
           <Card>
-            <EmptyState icon={ReceiptText} title="Nenhum pedido encontrado" description="Ajuste os filtros ou a busca." />
+            <EmptyState
+              icon={ReceiptText}
+              title={toProduce ? 'Nada para produzir' : 'Nenhum pedido encontrado'}
+              description={toProduce ? 'Pedidos personalizados e impressos pagos aparecem aqui até serem entregues.' : 'Ajuste os filtros ou a busca.'}
+            />
           </Card>
         }
       >
@@ -119,7 +165,13 @@ function Pedidos() {
                       <p className="font-medium text-gray-900 whitespace-nowrap">{o.name}</p>
                       <p className="text-xs text-gray-500">{o.email}</p>
                     </TD>
-                    <TD className="whitespace-nowrap">{o.packageTitle}</TD>
+                    <TD>
+                      <p className="whitespace-nowrap">{o.packageTitle}</p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {o.packageKind !== 'digital' && <KindBadge kind={o.packageKind} />}
+                        {o.productionStatus && <ProductionBadge status={o.productionStatus} />}
+                      </div>
+                    </TD>
                     <TD>{PAYMENT_METHOD[o.method]}</TD>
                     <TD className="text-right tabular-nums whitespace-nowrap">{formatBRL(o.amountCents)}</TD>
                     <TD>

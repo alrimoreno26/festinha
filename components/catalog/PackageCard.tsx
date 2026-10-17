@@ -1,7 +1,7 @@
-import { Card, Skeleton } from '@/components/ui'
-import { accessLabel, formatBRL } from '@/lib/format'
+import { Card, KindBadge, Skeleton } from '@/components/ui'
+import { accessLabel, formatBRL, unitsLabel } from '@/lib/format'
 import type { PublicPackage } from '@/lib/services/packages'
-import { Files, ImageOff } from 'lucide-react'
+import { Files, ImageOff, Package as PackageIcon } from 'lucide-react'
 import Link from 'next/link'
 
 export function PackageCover({ src, alt, className }: { src: string | null; alt: string; className?: string }) {
@@ -14,22 +14,30 @@ export function PackageCover({ src, alt, className }: { src: string | null; alt:
   return <img src={src} alt={alt} className={`object-cover ${className ?? ''}`} />
 }
 
+/** Resumo curto do conteúdo: arquivos e acesso (kit pronto) ou unidades (sob encomenda). */
+export function packageSummary(pkg: Pick<PublicPackage, 'kind' | 'items' | 'files' | 'accessDays'>) {
+  const units = pkg.items.reduce((sum, i) => sum + i.quantity, 0)
+  if (pkg.kind !== 'digital') return units ? `${unitsLabel(units)} · personalizado` : 'Personalizado com seu tema'
+  return `${pkg.files.length} arquivos · ${accessLabel(pkg.accessDays)}`
+}
+
 export function PackageCard({ pkg }: { pkg: PublicPackage }) {
   return (
     <Link href={`/pacotes/${pkg.slug}`} className="group block focus-visible:outline-none">
       <Card className="overflow-hidden h-full flex flex-col transition-shadow group-hover:shadow-md group-focus-visible:ring-2 group-focus-visible:ring-brand-grape">
-        <div className="overflow-hidden">
-          <PackageCover src={pkg.coverUrl} alt={pkg.title} className="h-48 w-full transition-transform duration-300 group-hover:scale-105" />
+        <div className="relative overflow-hidden">
+          <span className="absolute left-3 top-3 z-10">
+            <KindBadge kind={pkg.kind} />
+          </span>
+          <PackageCover src={pkg.coverUrl} alt={pkg.title} className="aspect-square w-full transition-transform duration-300 group-hover:scale-105" />
         </div>
         <div className="p-5 flex flex-col flex-1">
           <h3 className="font-display font-semibold text-xl text-brand-ink">{pkg.title}</h3>
           <p className="mt-1 text-sm text-gray-600 line-clamp-2">{pkg.description}</p>
           <div className="mt-3 flex items-center gap-3 text-xs text-gray-500">
             <span className="inline-flex items-center gap-1">
-              <Files size={14} /> {pkg.files.length} arquivos
+              {pkg.kind === 'digital' ? <Files size={14} /> : <PackageIcon size={14} />} {packageSummary(pkg)}
             </span>
-            <span>·</span>
-            <span>{accessLabel(pkg.accessDays)}</span>
           </div>
           <div className="mt-auto pt-4 flex items-center justify-between">
             <p className="font-display text-2xl font-bold text-brand-rose tabular-nums">{formatBRL(pkg.priceCents)}</p>
@@ -44,7 +52,7 @@ export function PackageCard({ pkg }: { pkg: PublicPackage }) {
 export function PackageCardSkeleton() {
   return (
     <Card className="overflow-hidden">
-      <Skeleton className="h-48 rounded-none" />
+      <Skeleton className="aspect-square rounded-none" />
       <div className="p-5 space-y-3">
         <Skeleton className="h-5 w-2/3" />
         <Skeleton className="h-4 w-full" />

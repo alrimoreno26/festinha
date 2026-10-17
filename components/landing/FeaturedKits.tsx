@@ -14,7 +14,7 @@ export function FeaturedKits() {
   return (
     <section id="kits" className="py-16 md:py-24">
       <div className="max-w-6xl mx-auto px-4">
-        <SectionTitle subtitle="Compre, baixe na hora, imprima em casa e monte sua festa.">Kits pega e monta</SectionTitle>
+        <SectionTitle subtitle="Digitais para imprimir em casa, personalizados com o nome da criança e impressos prontos para a festa.">Nossos kits</SectionTitle>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {query.isPending
             ? Array.from({ length: 3 }, (_, i) => <PackageCardSkeleton key={i} />)

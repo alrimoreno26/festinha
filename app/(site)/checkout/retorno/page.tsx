@@ -62,7 +62,13 @@ function Approved({ order }: { order: PublicOrder }) {
         <PartyPopper size={30} />
       </StatusIcon>
       <h1 className="text-2xl font-bold text-gray-900">Pagamento confirmado!</h1>
-      {order.existingAccount ? (
+      {order.packageKind !== 'digital' ? (
+        <p className="mt-2 text-gray-600">
+          Recebemos seu pedido do <strong>{order.packageTitle}</strong> e já vamos começar a{' '}
+          {order.packageKind === 'printed' ? 'produzir' : 'criar a sua arte'}. Enviamos a confirmação para <strong>{order.email}</strong>
+          {order.existingAccount ? '' : ', com os dados para acompanhar o pedido na Área do Cliente'}.
+        </p>
+      ) : order.existingAccount ? (
         <p className="mt-2 text-gray-600">
           O <strong>{order.packageTitle}</strong> já está na sua conta.
           {!loggedInAsBuyer && ' Entre com seu email e senha de sempre.'}
@@ -74,8 +80,8 @@ function Approved({ order }: { order: PublicOrder }) {
       )}
       <OrderLine order={order} />
       <div className="mt-6 grid gap-2">
-        <ButtonLink href={loggedInAsBuyer ? '/conta' : '/conta/login'} size="lg">
-          {loggedInAsBuyer ? 'Ver meus kits' : 'Acessar a Área do Cliente'}
+        <ButtonLink href={loggedInAsBuyer ? (order.packageKind === 'digital' ? '/conta' : '/conta/pedidos') : '/conta/login'} size="lg">
+          {loggedInAsBuyer ? (order.packageKind === 'digital' ? 'Ver meus kits' : 'Acompanhar pedido') : 'Acessar a Área do Cliente'}
         </ButtonLink>
         {!order.existingAccount && (
           <p className="flex items-center justify-center gap-1.5 text-xs text-gray-500">

@@ -1,5 +1,5 @@
 import { cn } from '@/lib/cn'
-import type { EntitlementStatus, OrderStatus, PaymentMethod } from '@/lib/types'
+import type { DeliveryMethod, EntitlementStatus, OrderStatus, PackageKind, PaymentMethod, ProductionStatus } from '@/lib/types'
 import type { ReactNode } from 'react'
 
 export type BadgeTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'brand'
@@ -37,6 +37,34 @@ export const ENTITLEMENT_STATUS: Record<EntitlementStatus, { label: string; tone
 }
 
 export const PAYMENT_METHOD: Record<PaymentMethod, string> = { pix: 'Pix', card: 'Cartão' }
+
+export const PACKAGE_KIND: Record<PackageKind, { label: string; short: string; tone: BadgeTone }> = {
+  digital: { label: 'Kit digital pronto', short: 'Digital', tone: 'info' },
+  custom_digital: { label: 'Personalizado digital', short: 'Personalizado', tone: 'brand' },
+  printed: { label: 'Kit impresso', short: 'Impresso', tone: 'warning' },
+}
+
+export const PRODUCTION_STATUS: Record<ProductionStatus, { label: string; tone: BadgeTone }> = {
+  in_production: { label: 'Em produção', tone: 'warning' },
+  ready: { label: 'Pronto', tone: 'info' },
+  delivered: { label: 'Entregue', tone: 'success' },
+}
+
+export const DELIVERY_METHOD: Record<DeliveryMethod, string> = {
+  download: 'Download na Área do Cliente',
+  pickup: 'Retirada no local',
+  delivery: 'Entrega (motoboy/aplicativo)',
+}
+
+export function KindBadge({ kind }: { kind: PackageKind }) {
+  const { short, tone } = PACKAGE_KIND[kind]
+  return <Badge tone={tone}>{short}</Badge>
+}
+
+export function ProductionBadge({ status }: { status: ProductionStatus }) {
+  const { label, tone } = PRODUCTION_STATUS[status]
+  return <Badge tone={tone}>{label}</Badge>
+}
 
 export function OrderStatusBadge({ status }: { status: OrderStatus }) {
   const { label, tone } = ORDER_STATUS[status]

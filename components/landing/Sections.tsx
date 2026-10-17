@@ -25,15 +25,15 @@ export function Hero() {
             Transformando festas simples em <span className="text-rainbow">celebrações inesquecíveis</span>
           </h1>
           <p className="mt-5 text-[17px] leading-relaxed">
-            Kits digitais e papelaria personalizada para aniversários, chás e datas especiais. Compre, baixe na hora, imprima e monte sua festa do seu jeitinho. 💕
+            Kits digitais, artes personalizadas e papelaria impressa para aniversários, chás e datas especiais. Escolha, conte como você quer e monte sua festa do seu jeitinho. 💕
           </p>
           <div className="mt-7 flex flex-wrap justify-center md:justify-start gap-3">
             <Link href="/pacotes" className={buttonClasses('primary', 'lg')}>
-              <Sparkles size={18} /> Ver kits digitais
+              <Sparkles size={18} /> Ver os kits
             </Link>
-            <a href="#contato" className={buttonClasses('outline', 'lg')}>
+            <Link href="/pacotes?tipo=custom_digital" className={buttonClasses('outline', 'lg')}>
               Quero um kit personalizado
-            </a>
+            </Link>
           </div>
         </motion.div>
         <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.6, delay: 0.1 }} className="relative">
@@ -82,11 +82,11 @@ export function About() {
 }
 
 const steps = [
-  { title: 'Escolha o seu kit', desc: 'Navegue pelos kits digitais pega e monta e escolha o tema da sua festa.' },
+  { title: 'Escolha o seu kit', desc: 'Kit digital pronto, arte personalizada ou papelaria impressa.' },
+  { title: 'Conte os detalhes', desc: 'Nos personalizados, informe nome, idade, tema e cores no próprio pedido.' },
   { title: 'Pague com Pix ou cartão', desc: 'Pagamento seguro pelo Mercado Pago. O Pix é confirmado na hora.' },
-  { title: 'Receba seu acesso', desc: 'Enviamos por email os dados da sua Área do Cliente assim que o pagamento é aprovado.' },
-  { title: 'Baixe e imprima', desc: 'Os arquivos ficam disponíveis para baixar e imprimir onde preferir.' },
-  { title: 'Recorte e monte', desc: 'Caixinhas, tags, topos e lembrancinhas prontos para montar.' },
+  { title: 'Receba', desc: 'Kit pronto: download na hora. Personalizado: a arte na sua Área do Cliente. Impresso: retirada ou entrega.' },
+  { title: 'Recorte e monte', desc: 'Caixinhas, tags, plaquinhas e lembrancinhas prontas para montar.' },
   { title: 'Faça uma linda festa!', desc: 'Agora é só celebrar e guardar as lembranças. 🎉' },
 ]
 
@@ -120,19 +120,19 @@ const options = [
     n: 1,
     title: 'Kits digitais prontos',
     desc: 'Arquivos prontos para baixar, imprimir e montar. Pague aqui no site e receba o acesso na hora.',
-    cta: { label: 'Ver kits', href: '/pacotes' },
+    cta: { label: 'Ver kits digitais', href: '/pacotes?tipo=digital' },
   },
   {
     n: 2,
     title: 'Kit personalizado',
-    desc: 'Personalizamos cada detalhe com o nome, idade, cores e o tema da sua festa. Você recebe o arquivo digital ou opta pela impressão.',
-    cta: { label: 'Pedir pelo WhatsApp', href: whatsappUrl('Olá! Quero um kit personalizado 💕') },
+    desc: 'Personalizamos cada detalhe com o nome, idade, cores e o tema da sua festa. Você conta como quer no pedido e recebe o arquivo na Área do Cliente.',
+    cta: { label: 'Ver personalizados', href: '/pacotes?tipo=custom_digital' },
   },
   {
     n: 3,
     title: 'Impressão',
-    desc: 'Kits impressos com qualidade, capricho e atenção aos detalhes. Retirada no local ou entrega por motoboy/aplicativo.',
-    cta: { label: 'Fazer orçamento', href: whatsappUrl('Olá! Quero um orçamento de impressão.') },
+    desc: 'Caixinhas, plaquinhas, tags e livrinhos impressos com capricho. Retirada no local ou entrega por motoboy/aplicativo.',
+    cta: { label: 'Ver impressos', href: '/pacotes?tipo=printed' },
   },
 ]
 
@@ -204,7 +204,7 @@ export function Gallery({ items = [] }: { items?: GalleryItem[] }) {
     <section id="galeria" className="py-14 md:py-20 bg-white/70">
       <div className="max-w-6xl mx-auto px-4">
         <SectionTitle subtitle="Alguns trabalhos e materiais feitos com carinho.">Galeria</SectionTitle>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {items.map((g, idx) => (
             <motion.div
               key={idx}
@@ -214,7 +214,7 @@ export function Gallery({ items = [] }: { items?: GalleryItem[] }) {
               transition={{ duration: 0.4, delay: 0.05 * idx }}
               className="overflow-hidden rounded-3xl bg-white ring-4 ring-white shadow-sm shadow-brand-pink/30"
             >
-              <img src={g.src} alt={g.alt || 'Galeria Festinhas Criativas'} className="h-44 md:h-56 w-full object-cover hover:scale-105 transition-transform duration-300" />
+              <img src={g.src} alt={g.alt || 'Galeria Festinhas Criativas'} className="aspect-square w-full object-cover hover:scale-105 transition-transform duration-300" />
             </motion.div>
           ))}
         </div>

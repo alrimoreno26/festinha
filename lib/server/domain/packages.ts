@@ -1,4 +1,4 @@
-import type { AdminPackageRow, PackageInput, PublicPackage } from '@/lib/contracts'
+import { customizationFor, type AdminPackageRow, type PackageInput, type PublicPackage } from '@/lib/contracts'
 import { slugify } from '@/lib/format'
 import { ServiceError } from '@/lib/services/errors'
 import type { Package } from '@/lib/types'
@@ -58,16 +58,24 @@ async function validate(db: Db, input: PackageInput, id?: string): Promise<Packa
     if (dup) errors.slug = 'Já existe um pacote com este slug.'
   }
   if (!Number.isInteger(input.priceCents) || input.priceCents < 100) errors.priceCents = 'O preço mínimo é R$ 1,00.'
-  if (input.accessDays !== null && (!Number.isInteger(input.accessDays) || input.accessDays < 1))
-    errors.accessDays = 'Informe um número de dias válido.'
-  const fileIds = [...new Set(input.fileIds)]
-  if (input.active && fileIds.length === 0) errors.fileIds = 'Um pacote ativo precisa ter pelo menos um arquivo.'
+  const kind = input.kind
+  if (!['digital', 'custom_digital', 'printed'].includes(kind)) errors.kind = 'Tipo de pacote inválido.'
+  const digital = kind === 'digital'
+  // Só o kit pronto tem arquivos e prazo de acesso; os sob encomenda recebem a arte no próprio pedido.
+  const accessDays = digital ? input.accessDays : null
+  if (accessDays !== null && (!Number.isInteger(accessDays) || accessDays < 1)) errors.accessDays = 'Informe um número de dias válido.'
+  const fileIds = digital ? [...new Set(input.fileIds)] : []
+  if (digital && input.active && fileIds.length === 0) errors.fileIds = 'Um kit digital ativo precisa ter pelo menos um arquivo.'
+
+  const items = input.items.map((i) => ({ name: i.name.trim(), quantity: i.quantity })).filter((i) => i.name)
+  if (items.some((i) => !Number.isInteger(i.quantity) || i.quantity < 1 || i.quantity > 10_000)) errors.items = 'Informe quantidades entre 1 e 10.000.'
+  if (!digital && input.active && items.length === 0) errors.items = 'Liste o que vem no pacote (ex.: 5 Caixa Milk).'
   if (fileIds.length) {
     const found = await db.select({ id: t.files.id }).from(t.files).where(inArray(t.files.id, fileIds))
     if (found.length !== fileIds.length) errors.fileIds = 'Alguns arquivos não existem mais. Revise a lista.'
   }
   if (Object.keys(errors).length) throw new ServiceError('VALIDATION', 'Revise os campos destacados.', errors)
-  return { ...input, title, slug, description: input.description.trim(), fileIds }
+  return { ...input, title, slug, description: input.description.trim(), fileIds, accessDays, items, customizationLevel: customizationFor(kind, input.customizationLevel) }
 }
 
 async function writeFiles(db: Db, packageId: string, fileIds: string[]) {
@@ -138,7 +146,8 @@ export async function update(db: Db, actor: Actor, id: string, input: PackageInp
 export async function setActive(db: Db, actor: Actor, id: string, active: boolean) {
   requireAdmin(actor)
   const pkg = await loadPackage(db, id)
-  if (active && pkg.fileIds.length === 0) throw new ServiceError('VALIDATION', 'Adicione arquivos antes de ativar o pacote.')
+  if (active && pkg.kind === 'digital' && pkg.fileIds.length === 0) throw new ServiceError('VALIDATION', 'Adicione arquivos antes de ativar o pacote.')
+  if (active && pkg.kind !== 'digital' && pkg.items.length === 0) throw new ServiceError('VALIDATION', 'Liste o que vem no pacote antes de ativá-lo.')
   await db.update(t.packages).set({ active, updatedAt: new Date() }).where(eq(t.packages.id, id))
   return { ...pkg, active }
 }

@@ -1,4 +1,4 @@
-// Regras que o webhook do Mercado Pago vai disparar (fase 4). Sempre chamadas dentro de transação.
+// Regras disparadas pelo webhook do Mercado Pago (e pela confirmação manual). Sempre chamadas dentro de transação.
 
 import { addDays } from '@/lib/entitlements'
 import type { OrderStatus } from '@/lib/types'
@@ -97,10 +97,27 @@ export async function approveOrder(db: Db, orderId: string) {
       .returning()
   }
 
+  // Kit pronto: libera o download na hora. Sob encomenda: entra em produção (a arte/o impresso vem depois).
+  const madeToOrder = pkg.kind !== 'digital'
   await db
     .update(t.orders)
-    .set({ status: 'approved', paidAt: new Date(), userId: user.id, simulatedApproveAt: null })
+    .set({ status: 'approved', paidAt: new Date(), userId: user.id, simulatedApproveAt: null, productionStatus: madeToOrder ? 'in_production' : null })
     .where(eq(t.orders.id, orderId))
+
+  if (madeToOrder) {
+    await sendEmail(db, {
+      to: user.email,
+      ...messages.orderReceived({
+        name: user.name,
+        email: user.email,
+        tempPassword,
+        kit: pkg.title,
+        printed: pkg.kind === 'printed',
+        customization: order.customization,
+      }),
+    })
+    return { approved: true as const, userId: user.id, createdUser: !!tempPassword }
+  }
 
   await grantEntitlement(db, { userId: user.id, packageId: pkg.id, orderId, accessDays: pkg.accessDays })
 

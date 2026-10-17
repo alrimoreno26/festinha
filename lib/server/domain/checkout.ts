@@ -3,9 +3,9 @@
 // a confirmação chega pelo webhook (e pela consulta na volta para o site).
 // Sem Mercado Pago: a página /simulador-mp faz o papel do MP.
 
-import { checkoutSchema, zodDetails, type CheckoutInput, type PublicOrder } from '@/lib/contracts'
+import { checkoutSchema, needsCustomization, needsName, zodDetails, type CheckoutInput, type PublicOrder } from '@/lib/contracts'
 import { ServiceError } from '@/lib/services/errors'
-import type { PaymentMethod } from '@/lib/types'
+import type { Customization, DeliveryMethod, PaymentMethod } from '@/lib/types'
 import { and, eq, isNotNull, lte } from 'drizzle-orm'
 import * as t from '../db/schema'
 import type { Db } from '../db/types'
@@ -28,7 +28,7 @@ export interface CheckoutUrls {
 
 async function toPublicOrder(db: Db, orderId: string): Promise<PublicOrder> {
   const [row] = await db
-    .select({ order: t.orders, pkg: { title: t.packages.title, slug: t.packages.slug } })
+    .select({ order: t.orders, pkg: { title: t.packages.title, slug: t.packages.slug, kind: t.packages.kind } })
     .from(t.orders)
     .leftJoin(t.packages, eq(t.orders.packageId, t.packages.id))
     .where(eq(t.orders.id, orderId))
@@ -46,6 +46,9 @@ async function toPublicOrder(db: Db, orderId: string): Promise<PublicOrder> {
     email: order.email,
     packageTitle: pkg?.title ?? 'Pacote',
     packageSlug: pkg?.slug ?? '',
+    packageKind: pkg?.kind ?? 'digital',
+    deliveryMethod: order.deliveryMethod,
+    productionStatus: order.productionStatus,
     createdAt: order.createdAt.toISOString(),
     existingAccount: !!user && user.createdAt < order.createdAt,
     provider: viaMp ? 'mercadopago' : 'simulator',
@@ -60,17 +63,56 @@ async function toPublicOrder(db: Db, orderId: string): Promise<PublicOrder> {
   }
 }
 
+interface OrderData {
+  name: string
+  email: string
+  phone: string
+  method?: PaymentMethod
+  customization: Customization | null
+  deliveryMethod: DeliveryMethod
+  deliveryAddress: string | null
+}
+
+type PackageRow = typeof t.packages.$inferSelect
+
+/**
+ * Confere a personalização e a entrega exigidas pelo tipo de pacote.
+ * Devolve só o que vale para este pacote (ex.: kit pronto não guarda personalização) e os erros por campo.
+ */
+function orderExtras(pkg: PackageRow, input: Pick<CheckoutInput, 'customization' | 'deliveryMethod' | 'deliveryAddress'>) {
+  const errors: Record<string, string> = {}
+  let customization: Customization | null = null
+  if (needsCustomization(pkg)) {
+    const c = { childName: '', age: '', theme: '', colors: '', notes: '', ...input.customization }
+    if (needsName(pkg) && !c.childName.trim()) errors.childName = 'Informe o nome que vai na arte.'
+    if (!c.theme.trim()) errors.theme = 'Informe o tema da festa.'
+    customization = c
+  }
+
+  let deliveryMethod: DeliveryMethod = 'download'
+  let deliveryAddress: string | null = null
+  if (pkg.kind === 'printed') {
+    if (input.deliveryMethod !== 'pickup' && input.deliveryMethod !== 'delivery') errors.deliveryMethod = 'Escolha retirada ou entrega.'
+    else deliveryMethod = input.deliveryMethod
+    if (deliveryMethod === 'delivery') {
+      deliveryAddress = input.deliveryAddress?.trim() || null
+      if (!deliveryAddress || deliveryAddress.length < 10) errors.deliveryAddress = 'Informe o endereço completo, com bairro.'
+    }
+  }
+  return { errors, data: { customization, deliveryMethod, deliveryAddress } }
+}
+
 /** Cria o pedido pendente e, com Mercado Pago, a preferência de pagamento. */
 async function openOrder(
   db: Db,
-  data: { name: string; email: string; phone: string; method?: PaymentMethod },
-  pkg: typeof t.packages.$inferSelect,
+  data: OrderData,
+  pkg: PackageRow,
   urls: CheckoutUrls | null,
   gateway: PaymentGateway,
 ) {
   const id = newId('ord')
   // O preço vem sempre do banco, nunca do navegador.
-  await db.insert(t.orders).values({ id, name: data.name, email: data.email, phone: data.phone, packageId: pkg.id, amountCents: pkg.priceCents, method: data.method })
+  await db.insert(t.orders).values({ id, ...data, packageId: pkg.id, amountCents: pkg.priceCents })
 
   if (gateway.kind === 'simulator' || !urls) return { orderId: id, checkoutUrl: `/simulador-mp/${id}` }
 
@@ -89,15 +131,20 @@ async function openOrder(
 }
 
 export async function createOrder(db: Db, input: CheckoutInput, urls: CheckoutUrls | null = null, gateway: PaymentGateway = getPaymentGateway()) {
-  const parsed = checkoutSchema.safeParse(input)
-  if (!parsed.success) throw new ServiceError('VALIDATION', 'Revise os campos destacados.', zodDetails(parsed.error))
-
   const [pkg] = await db
     .select()
     .from(t.packages)
-    .where(and(eq(t.packages.slug, parsed.data.packageSlug), eq(t.packages.active, true)))
+    .where(and(eq(t.packages.slug, String(input.packageSlug ?? '')), eq(t.packages.active, true)))
   if (!pkg) throw new ServiceError('NOT_FOUND', 'Este pacote não está mais disponível.')
-  return openOrder(db, parsed.data, pkg, urls, gateway)
+
+  // Todos os erros de uma vez (dados pessoais + personalização + entrega), para o cliente corrigir num passo só.
+  const parsed = checkoutSchema.safeParse(input)
+  const extras = orderExtras(pkg, parsed.success ? parsed.data : input)
+  const errors = { ...(parsed.success ? {} : zodDetails(parsed.error)), ...extras.errors }
+  if (!parsed.success || Object.keys(errors).length) throw new ServiceError('VALIDATION', 'Revise os campos destacados.', errors)
+
+  const { name, email, phone } = parsed.data
+  return openOrder(db, { name, email, phone, ...extras.data }, pkg, urls, gateway)
 }
 
 /**
@@ -164,5 +211,14 @@ export async function retry(db: Db, orderId: string, urls: CheckoutUrls | null =
   if (!old) throw new ServiceError('NOT_FOUND', 'Pedido não encontrado.')
   const [pkg] = await db.select().from(t.packages).where(and(eq(t.packages.id, old.packageId), eq(t.packages.active, true)))
   if (!pkg) throw new ServiceError('NOT_FOUND', 'Este pacote não está mais disponível.')
-  return openOrder(db, { name: old.name, email: old.email, phone: old.phone, method: old.method }, pkg, urls, gateway)
+  const data = {
+    name: old.name,
+    email: old.email,
+    phone: old.phone,
+    method: old.method,
+    customization: old.customization ?? null,
+    deliveryMethod: old.deliveryMethod,
+    deliveryAddress: old.deliveryAddress,
+  }
+  return openOrder(db, data, pkg, urls, gateway)
 }

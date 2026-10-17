@@ -16,6 +16,9 @@ const input = (over: Partial<PackageInput> = {}): PackageInput => ({
   active: true,
   accessDays: 15,
   fileIds: ['fil_gen2', 'fil_uni1'],
+  kind: 'digital',
+  items: [],
+  customizationLevel: 'none',
   ...over,
 })
 

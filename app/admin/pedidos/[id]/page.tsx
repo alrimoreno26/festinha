@@ -1,6 +1,20 @@
 'use client'
 
-import { Button, ButtonLink, Card, ConfirmDialog, EntitlementBadge, OrderStatusBadge, PageHeader, PAYMENT_METHOD, QueryState, useToast } from '@/components/ui'
+import { CustomizationCard, ProductionCard } from '@/components/admin/OrderProduction'
+import {
+  Button,
+  ButtonLink,
+  Card,
+  ConfirmDialog,
+  DELIVERY_METHOD,
+  EntitlementBadge,
+  KindBadge,
+  OrderStatusBadge,
+  PageHeader,
+  PAYMENT_METHOD,
+  QueryState,
+  useToast,
+} from '@/components/ui'
 import { expiryText } from '@/lib/entitlements'
 import { formatBRL, formatDateTime } from '@/lib/format'
 import { devToolsEnabled } from '@/lib/dev/settings'
@@ -54,7 +68,10 @@ export default function PedidoPage({ params }: { params: { id: string } }) {
 
   return (
     <QueryState query={query}>
-      {({ order, package: pkg, customer, entitlement, payment }) => (
+      {(detail) => {
+        const { order, package: pkg, customer, entitlement, payment } = detail
+        const madeToOrder = !!pkg && pkg.kind !== 'digital'
+        return (
         <>
           <PageHeader
             back={
@@ -105,7 +122,18 @@ export default function PedidoPage({ params }: { params: { id: string } }) {
                     <Row label="Status no MP">{payment.mpStatus ? <span className="font-mono text-xs">{payment.mpStatus}</span> : '—'}</Row>
                   </>
                 )}
-                <Row label="Pacote">{pkg ? <Link href={`/admin/pacotes/${pkg.id}`} className="text-brand-grape hover:underline">{pkg.title}</Link> : '—'}</Row>
+                <Row label="Pacote">
+                  {pkg ? (
+                    <span className="inline-flex items-center gap-2">
+                      <KindBadge kind={pkg.kind} />
+                      <Link href={`/admin/pacotes/${pkg.id}`} className="text-brand-grape hover:underline">
+                        {pkg.title}
+                      </Link>
+                    </span>
+                  ) : (
+                    '—'
+                  )}
+                </Row>
               </dl>
               {order.status === 'pending' && (
                 <p className="mt-3 rounded-2xl bg-amber-50 p-3 text-xs text-amber-800">
@@ -125,9 +153,19 @@ export default function PedidoPage({ params }: { params: { id: string } }) {
                   </a>
                 </Row>
                 <Row label="Conta">{customer ? 'Criada' : 'Ainda não (é criada quando o pagamento é aprovado)'}</Row>
+                {madeToOrder && <Row label="Recebimento">{DELIVERY_METHOD[order.deliveryMethod]}</Row>}
+                {order.deliveryAddress && (
+                  <Row label="Endereço">
+                    <span className="whitespace-pre-wrap">{order.deliveryAddress}</span>
+                  </Row>
+                )}
               </dl>
             </Card>
 
+            {order.customization && <CustomizationCard customization={order.customization} />}
+            {madeToOrder && <ProductionCard detail={detail} />}
+
+            {!madeToOrder && (
             <Card className="p-5 lg:col-span-2">
               <h2 className="font-semibold text-gray-900">Acesso liberado</h2>
               {entitlement ? (
@@ -146,6 +184,7 @@ export default function PedidoPage({ params }: { params: { id: string } }) {
                 <p className="mt-2 text-sm text-gray-500">Nenhum acesso ligado a este pedido.</p>
               )}
             </Card>
+            )}
 
             {devToolsEnabled && order.status === 'approved' && (
               <Card className="p-5 lg:col-span-2 border-dashed">
@@ -167,7 +206,11 @@ export default function PedidoPage({ params }: { params: { id: string } }) {
             loading={approve.isPending}
             tone="primary"
             title="Confirmar pagamento manualmente?"
-            description={`O acesso ao ${pkg?.title} será liberado para ${order.email} e o email de acesso será enviado.`}
+            description={
+              madeToOrder
+                ? `O pedido do ${pkg?.title} entra em produção e ${order.email} recebe o email de confirmação.`
+                : `O acesso ao ${pkg?.title} será liberado para ${order.email} e o email de acesso será enviado.`
+            }
             confirmLabel="Confirmar e liberar"
           />
           <ConfirmDialog
@@ -180,7 +223,8 @@ export default function PedidoPage({ params }: { params: { id: string } }) {
             confirmLabel="Reembolsar"
           />
         </>
-      )}
+        )
+      }}
     </QueryState>
   )
 }

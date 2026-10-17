@@ -1,18 +1,52 @@
 'use client'
 
 import { PackageCover } from '@/components/catalog/PackageCard'
-import { ButtonLink, Card, EmptyState, ErrorState, FileIcon, fileKind, Skeleton } from '@/components/ui'
-import { accessLabel, formatBRL, formatBytes } from '@/lib/format'
+import { ButtonLink, Card, EmptyState, ErrorState, FileIcon, fileKind, KindBadge, Skeleton } from '@/components/ui'
+import { accessLabel, formatBRL, formatBytes, unitsLabel } from '@/lib/format'
 import { packagesService, qk, ServiceError } from '@/lib/services'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarClock, ChevronLeft, CreditCard, SearchX, Zap } from 'lucide-react'
+import type { PackageKind } from '@/lib/types'
+import { BRAND, whatsappUrl } from '@/lib/brand'
+import { Bike, CalendarClock, ChevronLeft, CreditCard, Mail, MessageCircle, Palette, SearchX, Store, Zap, type LucideIcon } from 'lucide-react'
 import Link from 'next/link'
 
-const faq = [
-  { q: 'Como recebo os arquivos?', a: 'Assim que o pagamento é confirmado, enviamos por email seus dados de acesso à Área do Cliente, onde você baixa tudo.' },
-  { q: 'Preciso de impressora especial?', a: 'Não. Os arquivos funcionam em impressoras caseiras. Para melhor acabamento, use papel fotográfico ou de gramatura 180g ou mais.' },
-  { q: 'O pagamento por Pix demora?', a: 'Normalmente é confirmado em segundos. A página atualiza sozinha quando o Pix cair.' },
-]
+const pixFaq = { q: 'O pagamento por Pix demora?', a: 'Normalmente é confirmado em segundos. A página atualiza sozinha quando o Pix cair.' }
+
+const FAQ: Record<PackageKind, { q: string; a: string }[]> = {
+  digital: [
+    { q: 'Como recebo os arquivos?', a: 'Assim que o pagamento é confirmado, enviamos por email seus dados de acesso à Área do Cliente, onde você baixa tudo.' },
+    { q: 'Preciso de impressora especial?', a: 'Não. Os arquivos funcionam em impressoras caseiras. Para melhor acabamento, use papel fotográfico ou de gramatura 180g ou mais.' },
+    pixFaq,
+  ],
+  custom_digital: [
+    { q: 'Como envio os dados da personalização?', a: 'No checkout você informa o nome, a idade, o tema, as cores e o que mais quiser. Se precisarmos de algo, chamamos no WhatsApp.' },
+    { q: 'Quando recebo a arte?', a: 'O prazo é combinado conforme o modelo. Quando a arte fica pronta, avisamos por email e os arquivos aparecem na sua Área do Cliente, em Pedidos.' },
+    { q: 'Posso pedir alterações?', a: 'Ajustes combinados durante a criação estão incluídos. Mudanças depois da aprovação final podem ter custo extra, sempre combinado antes.' },
+  ],
+  printed: [
+    { q: 'Como recebo o kit impresso?', a: 'Você pode retirar no local, em horário combinado, ou receber por motoboy/aplicativo. O valor da entrega é calculado pela distância e combinado pelo WhatsApp (não está incluso no preço).' },
+    { q: 'Como envio os dados da personalização?', a: 'No checkout você informa o nome, a idade, o tema, as cores e o que mais quiser. Se precisarmos de algo, chamamos no WhatsApp.' },
+    { q: 'Qual é o prazo?', a: 'O prazo de produção é combinado conforme o modelo e a personalização escolhidos.' },
+  ],
+}
+
+const FEATURES: Record<PackageKind, (accessDays: number | null) => { icon: LucideIcon; text: string }[]> = {
+  digital: (days) => [
+    { icon: Zap, text: 'Liberação imediata após o pagamento' },
+    { icon: CreditCard, text: 'Pix ou cartão de crédito' },
+    { icon: CalendarClock, text: `${accessLabel(days)} para baixar` },
+  ],
+  custom_digital: () => [
+    { icon: Palette, text: 'Personalizado com nome, idade, tema e cores' },
+    { icon: Mail, text: 'Arte enviada na sua Área do Cliente quando ficar pronta' },
+    { icon: CreditCard, text: 'Pix ou cartão de crédito' },
+  ],
+  printed: () => [
+    { icon: Palette, text: 'Personalizado com nome, idade, tema e cores' },
+    { icon: Store, text: `Retirada no local (${BRAND.city})` },
+    { icon: Bike, text: 'Ou entrega por motoboy, com valor combinado pelo WhatsApp' },
+  ],
+}
 
 export default function PacotePage({ params }: { params: { slug: string } }) {
   const query = useQuery({
@@ -31,7 +65,7 @@ export default function PacotePage({ params }: { params: { slug: string } }) {
       <main className="max-w-6xl mx-auto px-4 py-10">
         {back}
         <div className="mt-6 grid gap-8 md:grid-cols-2">
-          <Skeleton className="aspect-[4/3] rounded-3xl" />
+          <Skeleton className="aspect-square rounded-3xl" />
           <div className="space-y-4">
             <Skeleton className="h-9 w-2/3" />
             <Skeleton className="h-5 w-full" />
@@ -66,17 +100,20 @@ export default function PacotePage({ params }: { params: { slug: string } }) {
 
   const pkg = query.data
   const totalSize = pkg.files.reduce((s, f) => s + f.size, 0)
+  const units = pkg.items.reduce((s, i) => s + i.quantity, 0)
+  const faq = FAQ[pkg.kind]
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-10 pb-28 md:pb-10">
       {back}
       <div className="mt-6 grid gap-8 md:grid-cols-2 md:items-start">
         <div className="overflow-hidden rounded-3xl shadow-sm bg-white md:sticky md:top-24">
-          <PackageCover src={pkg.coverUrl} alt={pkg.title} className="aspect-[4/3] w-full" />
+          <PackageCover src={pkg.coverUrl} alt={pkg.title} className="aspect-square w-full" />
         </div>
 
         <div>
-          <h1 className="text-3xl md:text-4xl font-extrabold text-brand-ink">{pkg.title}</h1>
+          <KindBadge kind={pkg.kind} />
+          <h1 className="mt-2 text-3xl md:text-4xl font-bold text-brand-ink">{pkg.title}</h1>
           <p className="mt-3 text-gray-700 text-[17px] leading-relaxed">{pkg.description}</p>
 
           <div className="mt-6 flex items-end gap-4">
@@ -85,24 +122,51 @@ export default function PacotePage({ params }: { params: { slug: string } }) {
           </div>
 
           <ul className="mt-4 grid gap-2 text-sm text-gray-700">
-            <li className="flex items-center gap-2">
-              <Zap size={16} className="text-brand-grape" /> Liberação imediata após o pagamento
-            </li>
-            <li className="flex items-center gap-2">
-              <CreditCard size={16} className="text-brand-grape" /> Pix ou cartão de crédito
-            </li>
-            <li className="flex items-center gap-2">
-              <CalendarClock size={16} className="text-brand-grape" /> {accessLabel(pkg.accessDays)} para baixar
-            </li>
+            {FEATURES[pkg.kind](pkg.accessDays).map(({ icon: Icon, text }) => (
+              <li key={text} className="flex items-center gap-2">
+                <Icon size={16} className="text-brand-grape shrink-0" /> {text}
+              </li>
+            ))}
           </ul>
 
           <ButtonLink href={`/checkout/${pkg.slug}`} size="lg" className="mt-6 w-full sm:w-auto hidden md:inline-flex">
             Comprar agora
           </ButtonLink>
 
+          {pkg.items.length > 0 && (
+            <Card className="mt-8 p-5">
+              <div className="flex items-baseline justify-between">
+                <h2 className="font-semibold text-gray-900">O que vem no kit</h2>
+                <p className="text-xs text-gray-500">{unitsLabel(units)}</p>
+              </div>
+              <ul className="mt-4 space-y-2">
+                {pkg.items.map((i) => (
+                  <li key={i.name} className="flex items-center gap-3 text-sm">
+                    <span className="inline-flex h-9 min-w-9 items-center justify-center rounded-full bg-brand-blush px-2 font-display font-bold text-brand-rose">
+                      {i.quantity}
+                    </span>
+                    <span className="text-gray-800">{i.name}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
+          {pkg.kind !== 'digital' && (
+            <a
+              href={whatsappUrl(`Olá! Tenho uma dúvida sobre o ${pkg.title}.`)}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-brand-grape hover:underline"
+            >
+              <MessageCircle size={16} /> Dúvidas sobre prazo ou tema? Fale com a gente
+            </a>
+          )}
+
+          {pkg.kind === 'digital' && pkg.files.length > 0 && (
           <Card className="mt-8 p-5">
             <div className="flex items-baseline justify-between">
-              <h2 className="font-semibold text-gray-900">O que vem no kit</h2>
+              <h2 className="font-semibold text-gray-900">{pkg.items.length ? 'Arquivos' : 'O que vem no kit'}</h2>
               <p className="text-xs text-gray-500">
                 {pkg.files.length} arquivos · {formatBytes(totalSize)}
               </p>
@@ -121,6 +185,7 @@ export default function PacotePage({ params }: { params: { slug: string } }) {
               ))}
             </ul>
           </Card>
+          )}
 
           <div className="mt-8 space-y-2">
             <h2 className="font-semibold text-gray-900 mb-3">Dúvidas frequentes</h2>

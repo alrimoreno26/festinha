@@ -1,31 +1,58 @@
 'use client'
 
 import { PackageCard, PackageCardSkeleton } from '@/components/catalog/PackageCard'
-import { Card, EmptyState, QueryState } from '@/components/ui'
+import { Card, EmptyState, PACKAGE_KIND, QueryState } from '@/components/ui'
+import { cn } from '@/lib/cn'
+import type { PackageKind } from '@/lib/types'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 import { packagesService, qk } from '@/lib/services'
 import { useQuery } from '@tanstack/react-query'
-import { Download, Mail, PackageOpen, Printer, ShoppingBag } from 'lucide-react'
+import { Gift, PackageOpen, Palette, PartyPopper, ShoppingBag } from 'lucide-react'
 
 const steps = [
-  { icon: ShoppingBag, title: 'Escolha e pague', desc: 'Pix ou cartão, com liberação imediata.' },
-  { icon: Mail, title: 'Receba o acesso', desc: 'Enviamos seus dados de login por email.' },
-  { icon: Download, title: 'Baixe os arquivos', desc: 'Tudo fica na sua Área do Cliente.' },
-  { icon: Printer, title: 'Imprima e monte', desc: 'Recorte, cole e deixe a festa linda.' },
+  { icon: ShoppingBag, title: 'Escolha o kit', desc: 'Digital pronto, personalizado ou impresso.' },
+  { icon: Palette, title: 'Conte os detalhes', desc: 'Tema, nome e idade nos personalizados.' },
+  { icon: Gift, title: 'Receba', desc: 'Download na hora, arte na Área do Cliente ou impresso pronto.' },
+  { icon: PartyPopper, title: 'Monte e celebre', desc: 'Recorte, monte e deixe a festa linda.' },
 ]
 
 const stepBg = ['bg-brand-pink/40', 'bg-brand-sun/50', 'bg-brand-mint/60', 'bg-brand-lilac/60']
 
+const TABS: { value: PackageKind | null; label: string }[] = [
+  { value: null, label: 'Todos' },
+  { value: 'digital', label: 'Digitais prontos' },
+  { value: 'custom_digital', label: 'Personalizados' },
+  { value: 'printed', label: 'Impressos' },
+]
+
 export default function PacotesPage() {
+  return (
+    <Suspense>
+      <Pacotes />
+    </Suspense>
+  )
+}
+
+function Pacotes() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const params = useSearchParams()
+  const raw = params.get('tipo')
+  const kind = raw && raw in PACKAGE_KIND ? (raw as PackageKind) : null
   const query = useQuery({ queryKey: qk.publicPackages, queryFn: packagesService.listPublic })
+  // Abas só para os tipos que existem no catálogo (sem abas vazias).
+  const kinds = new Set(query.data?.map((p) => p.kind))
+  const tabs = TABS.filter((t) => t.value === null || kinds.has(t.value))
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-12 md:py-16">
       <div className="text-center max-w-2xl mx-auto mb-10">
         <h1 className="text-4xl md:text-6xl font-bold text-brand-ink">
-          Kits digitais <span className="text-rainbow">pega e monta</span>
+          Nossos <span className="text-rainbow">kits</span>
         </h1>
         <p className="mt-4 text-[17px]">
-          Arquivos prontos para imprimir em casa ou na gráfica. Escolha o tema, baixe na hora e monte sua festa.
+          Arquivos digitais para imprimir em casa, artes personalizadas com o nome da criança e kits impressos prontos para a sua festa. Pague com Pix ou cartão.
         </p>
       </div>
 
@@ -42,6 +69,26 @@ export default function PacotesPage() {
         ))}
       </div>
 
+      {tabs.length > 2 && (
+        <div className="mb-6 flex flex-wrap justify-center gap-2" role="tablist" aria-label="Tipo de kit">
+          {tabs.map((t) => (
+            <button
+              key={t.label}
+              type="button"
+              role="tab"
+              aria-selected={kind === t.value}
+              onClick={() => router.replace(t.value ? `${pathname}?tipo=${t.value}` : pathname, { scroll: false })}
+              className={cn(
+                'rounded-full px-4 py-2 text-sm font-semibold transition-colors',
+                kind === t.value ? 'bg-brand-rose text-white shadow-sm' : 'bg-white text-brand-ink ring-1 ring-brand-pink/40 hover:bg-brand-blush',
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <QueryState
         query={query}
         loading={
@@ -56,14 +103,14 @@ export default function PacotesPage() {
             <EmptyState
               icon={PackageOpen}
               title="Nenhum kit disponível no momento"
-              description="Estamos preparando novidades! Fale com a gente pelo WhatsApp para um kit personalizado."
+              description="Estamos preparando novidades! Fale com a gente pelo WhatsApp."
             />
           </Card>
         }
       >
         {(packages) => (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {packages.map((pkg) => (
+            {packages.filter((pkg) => !kind || pkg.kind === kind).map((pkg) => (
               <PackageCard key={pkg.id} pkg={pkg} />
             ))}
           </div>

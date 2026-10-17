@@ -1,8 +1,8 @@
 'use client'
 
 import { PackageCover } from '@/components/catalog/PackageCard'
-import { ButtonLink, Card, EmptyState, PageHeader, QueryState, Switch, Table, TBody, TD, TH, THead, TR, useToast } from '@/components/ui'
-import { accessLabel, formatBRL } from '@/lib/format'
+import { ButtonLink, Card, EmptyState, KindBadge, PageHeader, QueryState, Switch, Table, TBody, TD, TH, THead, TR, useToast } from '@/components/ui'
+import { accessLabel, formatBRL, unitsLabel } from '@/lib/format'
 import { errorMessage, packagesService, qk } from '@/lib/services'
 import type { AdminPackageRow } from '@/lib/services/packages'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -58,8 +58,8 @@ export default function PacotesAdminPage() {
               <tr>
                 <TH>Pacote</TH>
                 <TH className="text-right">Preço</TH>
-                <TH>Arquivos</TH>
-                <TH>Acesso</TH>
+                <TH>Tipo</TH>
+                <TH>Conteúdo</TH>
                 <TH className="text-right">Vendas</TH>
                 <TH>No catálogo</TH>
               </tr>
@@ -79,8 +79,14 @@ export default function PacotesAdminPage() {
                     </div>
                   </TD>
                   <TD className="text-right tabular-nums whitespace-nowrap">{formatBRL(p.priceCents)}</TD>
-                  <TD>{p.fileIds.length}</TD>
-                  <TD className="whitespace-nowrap">{accessLabel(p.accessDays).replace('Acesso ', '')}</TD>
+                  <TD>
+                    <KindBadge kind={p.kind} />
+                  </TD>
+                  <TD className="whitespace-nowrap">
+                    {p.kind === 'digital'
+                      ? `${p.fileIds.length} arquivos · ${accessLabel(p.accessDays).replace('Acesso ', '')}`
+                      : unitsLabel(p.items.reduce((sum, i) => sum + i.quantity, 0))}
+                  </TD>
                   <TD className="text-right tabular-nums whitespace-nowrap">
                     {p.salesCount}
                     <p className="text-xs text-gray-400">{formatBRL(p.revenueCents)}</p>

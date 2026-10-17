@@ -34,6 +34,9 @@ export function toPackage(p: Row<typeof t.packages>, fileIds: string[]): Package
     priceCents: p.priceCents,
     active: p.active,
     accessDays: p.accessDays,
+    kind: p.kind,
+    items: p.items,
+    customizationLevel: p.customizationLevel,
     fileIds,
     createdAt: iso(p.createdAt),
     updatedAt: iso(p.updatedAt),
@@ -53,6 +56,10 @@ export function toOrder(o: Row<typeof t.orders>): Order {
     method: o.method,
     createdAt: iso(o.createdAt),
     paidAt: isoOrNull(o.paidAt),
+    customization: o.customization ?? null,
+    deliveryMethod: o.deliveryMethod,
+    deliveryAddress: o.deliveryAddress,
+    productionStatus: o.productionStatus,
   }
 }
 

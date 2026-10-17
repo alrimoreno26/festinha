@@ -8,6 +8,7 @@ export const GET = route(({ req, actor }) => {
     status: (q.get('status') as OrderFilters['status']) ?? undefined,
     search: q.get('q') ?? undefined,
     days: Number(q.get('dias')) || undefined,
+    toProduce: q.get('producao') === '1' || undefined,
   }
   return orders.list(db, actor, filters)
 })

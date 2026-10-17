@@ -9,6 +9,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -17,6 +18,7 @@ import {
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
+import type { Customization, PackageItem } from '@/lib/types'
 
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 const tstz = (name: string) => timestamp(name, { withTimezone: true })
@@ -25,6 +27,10 @@ export const roleEnum = pgEnum('role', ['admin', 'customer'])
 export const orderStatusEnum = pgEnum('order_status', ['pending', 'approved', 'rejected', 'refunded', 'charged_back'])
 export const paymentMethodEnum = pgEnum('payment_method', ['pix', 'card'])
 export const grantTypeEnum = pgEnum('grant_type', ['purchase', 'manual'])
+export const packageKindEnum = pgEnum('package_kind', ['digital', 'custom_digital', 'printed'])
+export const deliveryMethodEnum = pgEnum('delivery_method', ['download', 'pickup', 'delivery'])
+export const productionStatusEnum = pgEnum('production_status', ['in_production', 'ready', 'delivered'])
+export const customizationLevelEnum = pgEnum('customization_level', ['none', 'theme', 'full'])
 
 // ---------------------------------------------------------------------------
 // Usuários e autenticação
@@ -117,6 +123,9 @@ export const packages = pgTable(
     active: boolean('active').notNull().default(false),
     /** Dias de acesso após a compra. null = vitalício. */
     accessDays: integer('access_days'),
+    kind: packageKindEnum('kind').notNull().default('digital'),
+    items: jsonb('items').$type<PackageItem[]>().notNull().default([]),
+    customizationLevel: customizationLevelEnum('customization_level').notNull().default('none'),
     createdAt: createdAt(),
     updatedAt: tstz('updated_at').notNull().defaultNow(),
   },
@@ -171,6 +180,12 @@ export const orders = pgTable(
     mpStatus: text('mp_status'),
     /** Só no simulador (sem MP configurado): quando um Pix pendente deve ser "confirmado". */
     simulatedApproveAt: tstz('simulated_approve_at'),
+    // Personalização e entrega
+    customization: jsonb('customization').$type<Customization>(),
+    deliveryMethod: deliveryMethodEnum('delivery_method').notNull().default('download'),
+    deliveryAddress: text('delivery_address'),
+    /** Andamento de pedidos sob encomenda; null para kits digitais prontos. */
+    productionStatus: productionStatusEnum('production_status'),
   },
   (t) => [
     index('orders_email_idx').on(t.email),
@@ -178,6 +193,21 @@ export const orders = pgTable(
     index('orders_created_idx').on(t.createdAt),
     check('orders_amount_non_negative', sql`${t.amountCents} >= 0`),
   ],
+)
+
+/** Arquivos finais de um pedido personalizado digital (enviados pelo admin depois da criação). */
+export const orderFiles = pgTable(
+  'order_files',
+  {
+    orderId: text('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+    fileId: text('file_id')
+      .notNull()
+      .references(() => files.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.orderId, t.fileId] }), index('order_files_file_idx').on(t.fileId)],
 )
 
 export const entitlements = pgTable(

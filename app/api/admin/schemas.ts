@@ -10,4 +10,7 @@ export const packageInputSchema = z.object({
   active: z.boolean(),
   accessDays: z.number().int().nullable(),
   fileIds: z.array(z.string()).max(500),
+  kind: z.enum(['digital', 'custom_digital', 'printed']).default('digital'),
+  items: z.array(z.object({ name: z.string().max(200), quantity: z.number().int() })).max(50).default([]),
+  customizationLevel: z.enum(['none', 'theme', 'full']).default('none'),
 })

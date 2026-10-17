@@ -33,8 +33,8 @@ export async function seedDatabase(
 
   await db.transaction(async (tx) => {
     const tables = withFiles
-      ? sql`downloads, entitlements, orders, package_files, packages, files, folders, email_outbox, login_attempts, password_resets, sessions`
-      : sql`downloads, entitlements, orders, package_files, packages, email_outbox, login_attempts, password_resets, sessions`
+      ? sql`downloads, entitlements, order_files, orders, package_files, packages, files, folders, email_outbox, login_attempts, password_resets, sessions`
+      : sql`downloads, entitlements, order_files, orders, package_files, packages, email_outbox, login_attempts, password_resets, sessions`
     await tx.execute(sql`truncate table ${tables} restart identity cascade`)
     // Remove clientes e as contas do seed; mantém os admins reais.
     await tx.delete(t.users).where(or(eq(t.users.role, 'customer'), and(eq(t.users.role, 'admin'), inArray(t.users.email, seedEmails))))
@@ -80,7 +80,7 @@ export async function wipeToRealData(db: Db) {
       .where(and(eq(t.users.role, 'admin'), notInArray(t.users.email, seedEmails)))
     if (!realAdmins.length) throw new Error('Nenhum administrador real encontrado. Crie um com `npm run admin:create` antes de limpar.')
     await tx.execute(
-      sql`truncate table downloads, entitlements, orders, package_files, packages, email_outbox, login_attempts, password_resets, sessions restart identity cascade`,
+      sql`truncate table downloads, entitlements, order_files, orders, package_files, packages, email_outbox, login_attempts, password_resets, sessions restart identity cascade`,
     )
     const removed = await tx
       .delete(t.users)

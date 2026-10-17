@@ -1,4 +1,5 @@
 import type { AdminOrderDetail, AdminOrderRow, OrderFilters } from '@/lib/contracts'
+import type { ProductionStatus } from '@/lib/types'
 import { api, qs } from './http'
 
 export type { AdminOrderDetail, AdminOrderRow, OrderFilters } from '@/lib/contracts'
@@ -7,7 +8,12 @@ export const ordersService = {
   list: (filters: OrderFilters = {}) =>
     api<AdminOrderRow[]>(
       'GET',
-      `/api/admin/orders${qs({ status: filters.status === 'all' ? undefined : filters.status, q: filters.search, dias: filters.days })}`,
+      `/api/admin/orders${qs({
+        status: filters.status === 'all' ? undefined : filters.status,
+        q: filters.search,
+        dias: filters.days,
+        producao: filters.toProduce ? 1 : undefined,
+      })}`,
     ),
 
   get: (id: string) => api<AdminOrderDetail>('GET', `/api/admin/orders/${id}`),
@@ -23,6 +29,13 @@ export const ordersService = {
 
   /** Revisa no Mercado Pago todos os pedidos pendentes recentes. */
   reconcilePending: () => api<{ checked: number; updated: number }>('POST', '/api/admin/orders/reconcile'),
+
+  /** Avança a produção (sob encomenda). `fileIds`: arquivos finais já enviados ao bucket (personalizado digital). */
+  updateProduction: (id: string, status: ProductionStatus, fileIds?: string[]) =>
+    api<AdminOrderDetail>('PATCH', `/api/admin/orders/${id}/production`, { status, fileIds }),
+
+  /** Tira um arquivo do pedido. */
+  detachFile: (id: string, fileId: string) => api<AdminOrderDetail>('DELETE', `/api/admin/orders/${id}/files/${fileId}`),
 
   /** Só no modo de simulação: equivale ao webhook de chargeback. */
   simulateChargeback: (id: string) => api<null>('POST', `/api/dev/orders/${id}/chargeback`),

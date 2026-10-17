@@ -2,13 +2,40 @@
 // formatos de resposta da API e esquemas de validação de entrada.
 
 import { z } from 'zod'
-import type { Entitlement, EntitlementStatus, FileItem, Order, OrderStatus, Package, PaymentMethod, User } from './types'
+import type {
+  CustomizationLevel,
+  DeliveryMethod,
+  Entitlement,
+  EntitlementStatus,
+  FileItem,
+  Order,
+  OrderStatus,
+  Package,
+  PackageKind,
+  PaymentMethod,
+  ProductionStatus,
+  User,
+} from './types'
 
 // ---------------------------------------------------------------------------
 // Pacotes
 // ---------------------------------------------------------------------------
 
-export type PackageInput = Pick<Package, 'title' | 'slug' | 'description' | 'coverUrl' | 'priceCents' | 'active' | 'accessDays' | 'fileIds'>
+export type PackageInput = Pick<
+  Package,
+  'title' | 'slug' | 'description' | 'coverUrl' | 'priceCents' | 'active' | 'accessDays' | 'fileIds' | 'kind' | 'items' | 'customizationLevel'
+>
+
+export const needsCustomization = (pkg: Pick<Package, 'customizationLevel'>) => pkg.customizationLevel !== 'none'
+/** Só a personalização completa leva nome e idade na arte. */
+export const needsName = (pkg: Pick<Package, 'customizationLevel'>) => pkg.customizationLevel === 'full'
+
+/** Nível efetivo para o tipo: kit pronto não pede nada, impresso pede tudo, personalizado digital escolhe. */
+export function customizationFor(kind: PackageKind, level: CustomizationLevel): CustomizationLevel {
+  if (kind === 'digital') return 'none'
+  if (kind === 'printed') return 'full'
+  return level === 'theme' ? 'theme' : 'full'
+}
 
 /** O que o catálogo público vê de cada arquivo: só nome, tipo e tamanho (nunca a key do bucket). */
 export type PublicFile = Pick<FileItem, 'filename' | 'mime' | 'size'>
@@ -63,8 +90,19 @@ export interface SyncResult {
 // Checkout
 // ---------------------------------------------------------------------------
 
+export const customizationSchema = z.object({
+  childName: z.string().trim().max(120).default(''),
+  age: z.string().trim().max(40).default(''),
+  theme: z.string().trim().max(200).default(''),
+  colors: z.string().trim().max(200).default(''),
+  notes: z.string().trim().max(2000).default(''),
+})
+
 export const checkoutSchema = z.object({
   packageSlug: z.string().min(1),
+  customization: customizationSchema.optional(),
+  deliveryMethod: z.enum(['download', 'pickup', 'delivery']).optional(),
+  deliveryAddress: z.string().trim().max(500).optional(),
   name: z.string().trim().min(3, 'Informe seu nome completo.'),
   email: z.string().trim().toLowerCase().email('Informe um email válido.'),
   phone: z
@@ -83,6 +121,9 @@ export interface PublicOrder {
   email: string
   packageTitle: string
   packageSlug: string
+  packageKind: PackageKind
+  deliveryMethod: DeliveryMethod
+  productionStatus: ProductionStatus | null
   createdAt: string
   /** Se o email já tinha conta antes desta compra. */
   existingAccount: boolean
@@ -102,17 +143,28 @@ export interface OrderFilters {
   search?: string
   /** Últimos N dias. */
   days?: number
+  /** Só pedidos sob encomenda pagos que ainda não foram entregues. */
+  toProduce?: boolean
 }
 
 export interface AdminOrderRow extends Order {
   packageTitle: string
+  packageKind: PackageKind
 }
+
+export const productionUpdateSchema = z.object({
+  status: z.enum(['in_production', 'ready', 'delivered']),
+  /** Arquivos finais (personalizado digital), já enviados ao bucket. */
+  fileIds: z.array(z.string()).max(50).optional(),
+})
 
 export interface AdminOrderDetail {
   order: Order
   package: Package | null
   customer: User | null
   entitlement: (Entitlement & { status: EntitlementStatus }) | null
+  /** Arquivos finais enviados para o cliente (personalizado digital). */
+  files: FileItem[]
   /** Como o pedido é pago e o que o Mercado Pago informou por último (para suporte). */
   payment: { provider: 'mercadopago' | 'simulator'; mpPaymentId: string | null; mpStatus: string | null }
 }
@@ -160,6 +212,13 @@ export interface MyKit {
 }
 
 export interface MyKitDetail extends MyKit {
+  files: KitFile[]
+}
+
+export interface MyOrder extends Order {
+  packageTitle: string
+  packageKind: PackageKind
+  /** Arquivos finais do pedido personalizado (vazio até ficar pronto). */
   files: KitFile[]
 }
 

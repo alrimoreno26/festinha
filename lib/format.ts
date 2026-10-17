@@ -48,3 +48,6 @@ export function formatPhoneBR(input: string) {
 export function accessLabel(accessDays: number | null) {
   return accessDays === null ? 'Acesso vitalício' : `Acesso por ${accessDays} dias`
 }
+
+/** "1 unidade" / "20 unidades". */
+export const unitsLabel = (n: number) => `${n} ${n === 1 ? 'unidade' : 'unidades'}`

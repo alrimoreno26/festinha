@@ -1,11 +1,11 @@
 'use client'
 
 import { PackageCover } from '@/components/catalog/PackageCard'
-import { Button, ButtonLink, Card, ConfirmDialog, Field, FileIcon, Input, Select, Switch, Textarea, useToast } from '@/components/ui'
-import { formatBRL, formatBytes, parseBRL, slugify } from '@/lib/format'
+import { Button, ButtonLink, Card, ConfirmDialog, Field, FileIcon, Input, PACKAGE_KIND, Select, Switch, Textarea, useToast } from '@/components/ui'
+import { formatBRL, formatBytes, parseBRL, slugify, unitsLabel } from '@/lib/format'
 import { errorMessage, filesService, packagesService, qk, ServiceError } from '@/lib/services'
 import type { PackageInput } from '@/lib/services/packages'
-import type { Package } from '@/lib/types'
+import type { CustomizationLevel, Package, PackageItem, PackageKind } from '@/lib/types'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { ArrowDown, ArrowUp, ExternalLink, ImagePlus, Plus, Trash2, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -13,6 +13,14 @@ import { useRef, useState, type FormEvent } from 'react'
 import { FilePicker } from './FilePicker'
 
 const centsToText = (cents: number) => (cents / 100).toFixed(2).replace('.', ',')
+
+const KIND_HELP: Record<PackageKind, string> = {
+  digital: 'Arquivos prontos: o cliente baixa assim que o pagamento é aprovado.',
+  custom_digital: 'Você cria a arte depois da compra com os dados do cliente e envia o arquivo final no pedido.',
+  printed: 'Você produz e o cliente retira no local ou recebe por motoboy (valor combinado pelo WhatsApp).',
+}
+
+type ItemRow = { name: string; quantity: string }
 
 export function PackageForm({ pkg }: { pkg?: Package }) {
   const router = useRouter()
@@ -30,6 +38,10 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
   const [active, setActive] = useState(pkg?.active ?? false)
   const [coverUrl, setCoverUrl] = useState<string | null>(pkg?.coverUrl ?? null)
   const [fileIds, setFileIds] = useState<string[]>(pkg?.fileIds ?? [])
+  const [kind, setKind] = useState<PackageKind>(pkg?.kind ?? 'digital')
+  const [items, setItems] = useState<ItemRow[]>((pkg?.items ?? []).map((i) => ({ name: i.name, quantity: String(i.quantity) })))
+  const [level, setLevel] = useState<CustomizationLevel>(pkg?.customizationLevel === 'theme' ? 'theme' : 'full')
+  const digital = kind === 'digital'
   const [pickerOpen, setPickerOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
@@ -42,7 +54,13 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
     active,
     accessDays: accessMode === 'life' ? null : Number(accessDays),
     fileIds,
+    kind,
+    items: items.filter((i) => i.name.trim()).map((i): PackageItem => ({ name: i.name, quantity: Number(i.quantity) })),
+    customizationLevel: level,
   })
+
+  const setItem = (index: number, patch: Partial<ItemRow>) => setItems((list) => list.map((it, i) => (i === index ? { ...it, ...patch } : it)))
+  const totalItems = items.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0)
 
   const save = useMutation({
     mutationFn: () => (pkg ? packagesService.update(pkg.id, input()) : packagesService.create(input())),
@@ -99,6 +117,15 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
       <div className="space-y-6 min-w-0">
         <Card className="p-6 space-y-4">
           <h2 className="font-semibold text-gray-900">Informações</h2>
+          <Field label="Tipo de pacote" hint={KIND_HELP[kind]}>
+            <Select value={kind} onChange={(e) => setKind(e.target.value as PackageKind)}>
+              {(Object.keys(PACKAGE_KIND) as PackageKind[]).map((k) => (
+                <option key={k} value={k}>
+                  {PACKAGE_KIND[k].label}
+                </option>
+              ))}
+            </Select>
+          </Field>
           <Field label="Título" error={errors.title}>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Kit Safári" />
           </Field>
@@ -120,43 +147,82 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
         <Card className="p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="font-semibold text-gray-900">Arquivos do pacote</h2>
+              <h2 className="font-semibold text-gray-900">O que vem no pacote</h2>
               <p className="text-sm text-gray-500">
-                {fileIds.length} arquivos · {formatBytes(totalSize)} — a ordem aqui é a ordem que o cliente vê.
+                {digital ? 'Opcional: aparece na página do kit.' : 'Obrigatório: é o que o cliente compra.'}
+                {totalItems > 0 && ` Total: ${unitsLabel(totalItems)}.`}
               </p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)} disabled={filesQuery.isPending}>
-              <Plus size={14} /> Escolher
+            <Button variant="outline" size="sm" onClick={() => setItems((list) => [...list, { name: '', quantity: '1' }])}>
+              <Plus size={14} /> Item
             </Button>
           </div>
-          {errors.fileIds && <p className="mt-3 text-sm text-red-600">{errors.fileIds}</p>}
-          {selectedFiles.length === 0 ? (
-            <div className="mt-4 rounded-2xl border-2 border-dashed border-gray-200 py-8 text-center text-sm text-gray-500">Nenhum arquivo selecionado.</div>
+          {errors.items && <p className="mt-3 text-sm text-red-600">{errors.items}</p>}
+          {items.length === 0 ? (
+            <div className="mt-4 rounded-2xl border-2 border-dashed border-gray-200 py-6 text-center text-sm text-gray-500">
+              Nenhum item. Ex.: 5 · Caixa Milk – 14 cm x 6,5 cm
+            </div>
           ) : (
-            <ul className="mt-4 divide-y divide-black/5 rounded-2xl border border-black/5">
-              {selectedFiles.map((f, i) => (
-                <li key={f!.id} className="flex items-center gap-3 px-3 py-2">
-                  <FileIcon mime={f!.mime} className="h-8 w-8" />
+            <ul className="mt-4 space-y-2">
+              {items.map((it, i) => (
+                <li key={i} className="flex items-center gap-2">
+                  <div className="w-20 shrink-0">
+                    <Input type="number" min={1} value={it.quantity} onChange={(e) => setItem(i, { quantity: e.target.value })} aria-label="Quantidade" />
+                  </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-gray-800">{f!.filename}</p>
-                    <p className="truncate text-xs text-gray-400">{f!.key}</p>
+                    <Input value={it.name} onChange={(e) => setItem(i, { name: e.target.value })} placeholder="Caixa Milk – 14 cm x 6,5 cm" aria-label="Item" />
                   </div>
-                  <div className="flex items-center">
-                    <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="rounded-lg p-1.5 text-gray-500 hover:bg-black/5 disabled:opacity-30" aria-label="Subir">
-                      <ArrowUp size={14} />
-                    </button>
-                    <button type="button" onClick={() => move(i, 1)} disabled={i === selectedFiles.length - 1} className="rounded-lg p-1.5 text-gray-500 hover:bg-black/5 disabled:opacity-30" aria-label="Descer">
-                      <ArrowDown size={14} />
-                    </button>
-                    <button type="button" onClick={() => setFileIds((ids) => ids.filter((id) => id !== f!.id))} className="rounded-lg p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600" aria-label={`Remover ${f!.filename}`}>
-                      <X size={14} />
-                    </button>
-                  </div>
+                  <button type="button" onClick={() => setItems((list) => list.filter((_, j) => j !== i))} className="shrink-0 rounded-lg p-2 text-gray-500 hover:bg-red-50 hover:text-red-600" aria-label="Remover item">
+                    <X size={14} />
+                  </button>
                 </li>
               ))}
             </ul>
           )}
         </Card>
+
+        {digital && (
+          <Card className="p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-semibold text-gray-900">Arquivos do pacote</h2>
+                <p className="text-sm text-gray-500">
+                  {fileIds.length} arquivos · {formatBytes(totalSize)} — a ordem aqui é a ordem que o cliente vê.
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)} disabled={filesQuery.isPending}>
+                <Plus size={14} /> Escolher
+              </Button>
+            </div>
+            {errors.fileIds && <p className="mt-3 text-sm text-red-600">{errors.fileIds}</p>}
+            {selectedFiles.length === 0 ? (
+              <div className="mt-4 rounded-2xl border-2 border-dashed border-gray-200 py-8 text-center text-sm text-gray-500">Nenhum arquivo selecionado.</div>
+            ) : (
+              <ul className="mt-4 divide-y divide-black/5 rounded-2xl border border-black/5">
+                {selectedFiles.map((f, i) => (
+                  <li key={f!.id} className="flex items-center gap-3 px-3 py-2">
+                    <FileIcon mime={f!.mime} className="h-8 w-8" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-gray-800">{f!.filename}</p>
+                      <p className="truncate text-xs text-gray-400">{f!.key}</p>
+                    </div>
+                    <div className="flex items-center">
+                      <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="rounded-lg p-1.5 text-gray-500 hover:bg-black/5 disabled:opacity-30" aria-label="Subir">
+                        <ArrowUp size={14} />
+                      </button>
+                      <button type="button" onClick={() => move(i, 1)} disabled={i === selectedFiles.length - 1} className="rounded-lg p-1.5 text-gray-500 hover:bg-black/5 disabled:opacity-30" aria-label="Descer">
+                        <ArrowDown size={14} />
+                      </button>
+                      <button type="button" onClick={() => setFileIds((ids) => ids.filter((id) => id !== f!.id))} className="rounded-lg p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600" aria-label={`Remover ${f!.filename}`}>
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        )}
 
         {pkg && (
           <Card className="p-6 border-red-100">
@@ -175,16 +241,36 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
           <Field label="Preço (R$)" error={errors.priceCents} hint={parsedPrice ? formatBRL(parsedPrice) : undefined}>
             <Input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="49,90" />
           </Field>
-          <Field label="Acesso após a compra">
-            <Select value={accessMode} onChange={(e) => setAccessMode(e.target.value as 'life' | 'days')}>
-              <option value="life">Vitalício</option>
-              <option value="days">Por um número de dias</option>
-            </Select>
-          </Field>
-          {accessMode === 'days' && (
-            <Field label="Dias de acesso" error={errors.accessDays}>
-              <Input type="number" min={1} value={accessDays} onChange={(e) => setAccessDays(e.target.value)} />
-            </Field>
+          {digital ? (
+            <>
+              <Field label="Acesso após a compra">
+                <Select value={accessMode} onChange={(e) => setAccessMode(e.target.value as 'life' | 'days')}>
+                  <option value="life">Vitalício</option>
+                  <option value="days">Por um número de dias</option>
+                </Select>
+              </Field>
+              {accessMode === 'days' && (
+                <Field label="Dias de acesso" error={errors.accessDays}>
+                  <Input type="number" min={1} value={accessDays} onChange={(e) => setAccessDays(e.target.value)} />
+                </Field>
+              )}
+            </>
+          ) : (
+            <>
+              {kind === 'custom_digital' && (
+                <Field label="O que pedir no checkout">
+                  <Select value={level} onChange={(e) => setLevel(e.target.value as CustomizationLevel)}>
+                    <option value="full">Nome, idade, tema e cores (personalizado)</option>
+                    <option value="theme">Só o tema (ex.: tema individual)</option>
+                  </Select>
+                </Field>
+              )}
+              <p className="rounded-2xl bg-brand-blush p-3 text-xs text-brand-ink">
+                {kind === 'custom_digital' && level === 'theme'
+                  ? 'O checkout pede o tema e observações. Você envia os arquivos do tema escolhido no pedido.'
+                  : `O checkout pede nome, idade, tema, cores e observações${kind === 'printed' ? ', além de retirada ou entrega' : ''}.`}
+              </p>
+            </>
           )}
           <div className="rounded-2xl bg-gray-50 p-3">
             <Switch checked={active} onChange={setActive} label={active ? 'Visível no catálogo' : 'Oculto (rascunho)'} />
@@ -194,7 +280,7 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
         <Card className="p-6">
           <h2 className="font-semibold text-gray-900 mb-3">Capa</h2>
           <div className="overflow-hidden rounded-2xl border border-black/5">
-            <PackageCover src={coverUrl} alt="" className="aspect-[4/3] w-full" />
+            <PackageCover src={coverUrl} alt="" className="aspect-square w-full" />
           </div>
           <div className="mt-3 flex gap-2">
             <Button variant="outline" size="sm" onClick={() => coverInput.current?.click()} loading={cover.isPending}>

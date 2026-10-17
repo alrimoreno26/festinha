@@ -1,10 +1,10 @@
 // Área do cliente: o que o cliente logado comprou e pode baixar.
 
-import type { MyKit, MyKitDetail } from '@/lib/contracts'
+import type { KitFile, MyKit, MyKitDetail, MyOrder } from '@/lib/contracts'
 import { canDownload, entitlementStatus } from '@/lib/entitlements'
 import { ServiceError } from '@/lib/services/errors'
 import type { EntitlementStatus } from '@/lib/types'
-import { and, asc, desc, eq, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import * as t from '../db/schema'
 import type { Db } from '../db/types'
 import { requireCustomer, type Actor } from '../guards'
@@ -58,16 +58,37 @@ export async function myKit(db: Db, actor: Actor, packageId: string): Promise<My
   return { ...kit, files }
 }
 
-export async function myOrders(db: Db, actor: Actor) {
+export async function myOrders(db: Db, actor: Actor): Promise<MyOrder[]> {
   const user = requireCustomer(actor)
   const rows = await db
-    .select({ order: t.orders, packageTitle: t.packages.title })
+    .select({ order: t.orders, packageTitle: t.packages.title, packageKind: t.packages.kind })
     .from(t.orders)
     .leftJoin(t.packages, eq(t.orders.packageId, t.packages.id))
     .where(eq(t.orders.userId, user.id))
     .orderBy(desc(t.orders.createdAt))
-  return rows.map((r) => ({ ...toOrder(r.order), packageTitle: r.packageTitle ?? '—' }))
+
+  // Os arquivos finais só aparecem quando o pedido personalizado foi entregue.
+  const delivered = rows.filter((r) => canDownloadOrder(r.order)).map((r) => r.order.id)
+  const files = delivered.length
+    ? await db
+        .select({ orderId: t.orderFiles.orderId, file: t.files })
+        .from(t.orderFiles)
+        .innerJoin(t.files, eq(t.orderFiles.fileId, t.files.id))
+        .where(inArray(t.orderFiles.orderId, delivered))
+        .orderBy(asc(t.orderFiles.position))
+    : []
+  const kitFile = (f: typeof t.files.$inferSelect): KitFile => ({ id: f.id, filename: f.filename, mime: f.mime, size: f.size })
+
+  return rows.map((r) => ({
+    ...toOrder(r.order),
+    packageTitle: r.packageTitle ?? '—',
+    packageKind: r.packageKind ?? 'digital',
+    files: files.filter((f) => f.orderId === r.order.id).map((f) => kitFile(f.file)),
+  }))
 }
+
+const canDownloadOrder = (o: Pick<typeof t.orders.$inferSelect, 'status' | 'productionStatus'>) =>
+  o.status === 'approved' && o.productionStatus === 'delivered'
 
 /** Confere se o cliente tem acesso válido a algum pacote que contém o arquivo. */
 async function checkDownloadAccess(db: Db, actor: Actor, fileId: string) {
@@ -80,8 +101,15 @@ async function checkDownloadAccess(db: Db, actor: Actor, fileId: string) {
     .from(t.entitlements)
     .innerJoin(t.packageFiles, eq(t.packageFiles.packageId, t.entitlements.packageId))
     .where(and(eq(t.entitlements.userId, user.id), eq(t.packageFiles.fileId, fileId)))
-  if (!grants.some(({ ent }) => canDownload(entitlementStatus(toEntitlement(ent)))))
-    throw new ServiceError('FORBIDDEN', 'Seu acesso a este arquivo expirou ou foi revogado.')
+  if (grants.some(({ ent }) => canDownload(entitlementStatus(toEntitlement(ent))))) return { user, file }
+
+  // Arquivo final de um pedido personalizado do próprio cliente.
+  const orders = await db
+    .select({ status: t.orders.status, productionStatus: t.orders.productionStatus })
+    .from(t.orderFiles)
+    .innerJoin(t.orders, eq(t.orderFiles.orderId, t.orders.id))
+    .where(and(eq(t.orders.userId, user.id), eq(t.orderFiles.fileId, fileId)))
+  if (!orders.some(canDownloadOrder)) throw new ServiceError('FORBIDDEN', 'Seu acesso a este arquivo expirou ou foi revogado.')
   return { user, file }
 }
 

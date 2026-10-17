@@ -54,9 +54,9 @@ export const POLICIES: PolicySection[] = [
       },
       { icon: '🎁', title: 'Produtos impressos', text: 'Podem ser retirados no local, em horário previamente combinado.' },
       {
-        icon: '🛵',
-        title: 'Entrega por motoboy ou aplicativo',
-        text: 'O serviço está sujeito à disponibilidade e o valor será calculado de acordo com a distância, sendo combinado previamente com o cliente.',
+        icon: '📦',
+        title: 'Envio pelos Correios ou transportadora',
+        text: 'Enviamos para todo o Brasil. O valor do frete e o prazo são calculados no checkout pelo seu CEP, e o prazo começa a contar a partir do envio. Você recebe o código de rastreio por email.',
       },
     ],
   },

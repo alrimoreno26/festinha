@@ -3,7 +3,7 @@
 
 export { accountService } from './account'
 export { authService } from './auth'
-export { checkoutService } from './checkout'
+export { checkoutService, shippingService } from './checkout'
 export { customersService } from './customers'
 export { dashboardService } from './dashboard'
 export { errorMessage, ServiceError } from './errors'

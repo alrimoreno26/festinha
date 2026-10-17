@@ -7,7 +7,7 @@ import { packagesService, qk, ServiceError } from '@/lib/services'
 import { useQuery } from '@tanstack/react-query'
 import type { PackageKind } from '@/lib/types'
 import { BRAND, whatsappUrl } from '@/lib/brand'
-import { Bike, CalendarClock, ChevronLeft, CreditCard, Mail, MessageCircle, Palette, SearchX, Store, Zap, type LucideIcon } from 'lucide-react'
+import { CalendarClock, ChevronLeft, CreditCard, Mail, MessageCircle, Palette, SearchX, Store, Truck, Zap, type LucideIcon } from 'lucide-react'
 import Link from 'next/link'
 
 const pixFaq = { q: 'O pagamento por Pix demora?', a: 'Normalmente é confirmado em segundos. A página atualiza sozinha quando o Pix cair.' }
@@ -24,7 +24,7 @@ const FAQ: Record<PackageKind, { q: string; a: string }[]> = {
     { q: 'Posso pedir alterações?', a: 'Sim: as alterações na arte podem ser pedidas em até 48 horas após a aprovação. Depois desse prazo não é possível fazer novas mudanças.' },
   ],
   printed: [
-    { q: 'Como recebo o kit impresso?', a: 'Você pode retirar no local, em horário combinado, ou receber por motoboy/aplicativo. A entrega está sujeita à disponibilidade e o valor é calculado pela distância, combinado antes com você (não está incluso no preço).' },
+    { q: 'Como recebo o kit impresso?', a: 'Você pode retirar no local, em horário combinado, ou receber em casa pelos Correios ou transportadora. O frete e o prazo são calculados no checkout pelo seu CEP, e você recebe o código de rastreio por email quando o pedido for enviado.' },
     { q: 'Como envio os dados da personalização?', a: 'No checkout você informa o nome, a idade, o tema, as cores e o que mais quiser. Para completar algum detalhe, você tem até 48 horas pelo WhatsApp.' },
     { q: 'Qual é o prazo?', a: 'O prazo de produção é combinado conforme o modelo e a personalização escolhidos.' },
   ],
@@ -44,7 +44,7 @@ const FEATURES: Record<PackageKind, (accessDays: number | null) => { icon: Lucid
   printed: () => [
     { icon: Palette, text: 'Personalizado com nome, idade, tema e cores' },
     { icon: Store, text: `Retirada no local (${BRAND.city})` },
-    { icon: Bike, text: 'Ou entrega por motoboy, com valor combinado pelo WhatsApp' },
+    { icon: Truck, text: 'Ou envio para todo o Brasil, com frete calculado pelo CEP' },
   ],
 }
 

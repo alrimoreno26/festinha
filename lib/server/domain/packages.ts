@@ -8,6 +8,7 @@ import type { Db } from '../db/types'
 import { requireAdmin, type Actor } from '../guards'
 import { newId } from '../ids'
 import { toPackage } from '../mappers'
+import { canShip } from './shipping'
 
 /** fileIds ordenados de cada pacote. */
 async function fileIdsByPackage(db: Db, packageIds: string[]) {
@@ -40,7 +41,7 @@ async function toPublic(db: Db, rows: (typeof t.packages.$inferSelect)[]): Promi
     : []
   return rows.map((r) => {
     const { fileIds: _f, active: _a, ...pkg } = toPackage(r, [])
-    return { ...pkg, files: files.filter((f) => f.packageId === r.id).map(({ filename, mime, size }) => ({ filename, mime, size })) }
+    return { ...pkg, shippable: canShip(r), files: files.filter((f) => f.packageId === r.id).map(({ filename, mime, size }) => ({ filename, mime, size })) }
   })
 }
 
@@ -70,12 +71,22 @@ async function validate(db: Db, input: PackageInput, id?: string): Promise<Packa
   const items = input.items.map((i) => ({ name: i.name.trim(), quantity: i.quantity })).filter((i) => i.name)
   if (items.some((i) => !Number.isInteger(i.quantity) || i.quantity < 1 || i.quantity > 10_000)) errors.items = 'Informe quantidades entre 1 e 10.000.'
   if (!digital && input.active && items.length === 0) errors.items = 'Liste o que vem no pacote (ex.: 5 Caixa Milk).'
+
+  // Medidas da embalagem (só impressos): opcionais, mas se preenchidas precisam ser completas e plausíveis.
+  let shippingBox = kind === 'printed' ? input.shippingBox : null
+  if (shippingBox) {
+    const { weightGrams, heightCm, widthCm, lengthCm } = shippingBox
+    const okDim = (n: number) => Number.isInteger(n) && n >= 1 && n <= 200
+    if (!Number.isInteger(weightGrams) || weightGrams < 1 || weightGrams > 30_000) errors.shippingBox = 'Informe o peso em gramas (até 30 kg).'
+    else if (![heightCm, widthCm, lengthCm].every(okDim)) errors.shippingBox = 'Informe altura, largura e comprimento em cm (números inteiros).'
+    else shippingBox = { weightGrams, heightCm, widthCm, lengthCm }
+  }
   if (fileIds.length) {
     const found = await db.select({ id: t.files.id }).from(t.files).where(inArray(t.files.id, fileIds))
     if (found.length !== fileIds.length) errors.fileIds = 'Alguns arquivos não existem mais. Revise a lista.'
   }
   if (Object.keys(errors).length) throw new ServiceError('VALIDATION', 'Revise os campos destacados.', errors)
-  return { ...input, title, slug, description: input.description.trim(), fileIds, accessDays, items, customizationLevel: customizationFor(kind, input.customizationLevel) }
+  return { ...input, title, slug, description: input.description.trim(), fileIds, accessDays, items, customizationLevel: customizationFor(kind, input.customizationLevel), shippingBox }
 }
 
 async function writeFiles(db: Db, packageId: string, fileIds: string[]) {

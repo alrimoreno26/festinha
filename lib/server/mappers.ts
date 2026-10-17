@@ -37,6 +37,7 @@ export function toPackage(p: Row<typeof t.packages>, fileIds: string[]): Package
     kind: p.kind,
     items: p.items,
     customizationLevel: p.customizationLevel,
+    shippingBox: p.shippingBox ?? null,
     fileIds,
     createdAt: iso(p.createdAt),
     updatedAt: iso(p.updatedAt),
@@ -58,7 +59,9 @@ export function toOrder(o: Row<typeof t.orders>): Order {
     paidAt: isoOrNull(o.paidAt),
     customization: o.customization ?? null,
     deliveryMethod: o.deliveryMethod,
-    deliveryAddress: o.deliveryAddress,
+    shippingAddress: o.shippingAddress ?? null,
+    shipping: o.shipping ?? null,
+    trackingCode: o.trackingCode,
     productionStatus: o.productionStatus,
   }
 }

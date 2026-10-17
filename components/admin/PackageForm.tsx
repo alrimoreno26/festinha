@@ -17,7 +17,7 @@ const centsToText = (cents: number) => (cents / 100).toFixed(2).replace('.', ','
 const KIND_HELP: Record<PackageKind, string> = {
   digital: 'Arquivos prontos: o cliente baixa assim que o pagamento é aprovado.',
   custom_digital: 'Você cria a arte depois da compra com os dados do cliente e envia o arquivo final no pedido.',
-  printed: 'Você produz e o cliente retira no local ou recebe por motoboy (valor combinado pelo WhatsApp).',
+  printed: 'Você produz e o cliente retira no local ou recebe pelos Correios/transportadora (frete do Melhor Envio calculado no checkout).',
 }
 
 type ItemRow = { name: string; quantity: string }
@@ -41,6 +41,13 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
   const [kind, setKind] = useState<PackageKind>(pkg?.kind ?? 'digital')
   const [items, setItems] = useState<ItemRow[]>((pkg?.items ?? []).map((i) => ({ name: i.name, quantity: String(i.quantity) })))
   const [level, setLevel] = useState<CustomizationLevel>(pkg?.customizationLevel === 'theme' ? 'theme' : 'full')
+  const [box, setBox] = useState({
+    weightGrams: String(pkg?.shippingBox?.weightGrams ?? ''),
+    heightCm: String(pkg?.shippingBox?.heightCm ?? ''),
+    widthCm: String(pkg?.shippingBox?.widthCm ?? ''),
+    lengthCm: String(pkg?.shippingBox?.lengthCm ?? ''),
+  })
+  const boxFilled = Object.values(box).some((v) => v.trim())
   const digital = kind === 'digital'
   const [pickerOpen, setPickerOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -57,6 +64,10 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
     kind,
     items: items.filter((i) => i.name.trim()).map((i): PackageItem => ({ name: i.name, quantity: Number(i.quantity) })),
     customizationLevel: level,
+    // Sem nenhuma medida preenchida = sem envio (só retirada).
+    shippingBox: boxFilled
+      ? { weightGrams: Number(box.weightGrams), heightCm: Number(box.heightCm), widthCm: Number(box.widthCm), lengthCm: Number(box.lengthCm) }
+      : null,
   })
 
   const setItem = (index: number, patch: Partial<ItemRow>) => setItems((list) => list.map((it, i) => (i === index ? { ...it, ...patch } : it)))
@@ -180,6 +191,30 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
             </ul>
           )}
         </Card>
+
+        {kind === 'printed' && (
+          <Card className="p-6">
+            <h2 className="font-semibold text-gray-900">Embalagem para envio</h2>
+            <p className="text-sm text-gray-500">
+              Peso e medidas da caixa já montada, para calcular o frete no Melhor Envio. Sem isso, o cliente só pode escolher retirada.
+            </p>
+            {errors.shippingBox && <p className="mt-3 text-sm text-red-600">{errors.shippingBox}</p>}
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {(
+                [
+                  ['weightGrams', 'Peso (g)', '400'],
+                  ['heightCm', 'Altura (cm)', '10'],
+                  ['widthCm', 'Largura (cm)', '20'],
+                  ['lengthCm', 'Comprimento (cm)', '30'],
+                ] as const
+              ).map(([key, label, placeholder]) => (
+                <Field key={key} label={label}>
+                  <Input type="number" min={1} inputMode="numeric" value={box[key]} onChange={(e) => setBox((b) => ({ ...b, [key]: e.target.value }))} placeholder={placeholder} />
+                </Field>
+              ))}
+            </div>
+          </Card>
+        )}
 
         {digital && (
           <Card className="p-6">

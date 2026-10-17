@@ -46,6 +46,14 @@ export interface PackageItem {
   quantity: number
 }
 
+/** Caixa usada para enviar um pacote impresso (para cotar o frete). */
+export interface ShippingBox {
+  weightGrams: number
+  heightCm: number
+  widthCm: number
+  lengthCm: number
+}
+
 export interface Package {
   id: ID
   slug: string
@@ -59,6 +67,8 @@ export interface Package {
   items: PackageItem[]
   /** Detalhes pedidos no checkout. Kit pronto: none; impresso: full; personalizado digital: theme ou full. */
   customizationLevel: CustomizationLevel
+  /** Só impressos: medidas e peso da embalagem. Sem isso, o envio não é oferecido (só retirada). */
+  shippingBox: ShippingBox | null
   /** Dias de acesso após a compra. `null` = vitalício. */
   accessDays: number | null
   /** Arquivos do pacote, na ordem de exibição. */
@@ -76,7 +86,28 @@ export interface Customization {
   notes: string
 }
 
-export type DeliveryMethod = 'download' | 'pickup' | 'delivery'
+/** download: kit digital; pickup: retirada no local; shipping: envio pelos Correios/transportadoras (Melhor Envio). */
+export type DeliveryMethod = 'download' | 'pickup' | 'shipping'
+
+export interface ShippingAddress {
+  postalCode: string
+  street: string
+  number: string
+  complement: string
+  district: string
+  city: string
+  state: string
+}
+
+/** Serviço de entrega escolhido no checkout (cotação do Melhor Envio no momento da compra). */
+export interface ShippingChoice {
+  serviceId: number
+  service: string
+  company: string
+  priceCents: number
+  minDays: number
+  maxDays: number
+}
 
 /** Andamento dos pedidos feitos sob encomenda (personalizados e impressos). null = kit digital pronto. */
 export type ProductionStatus = 'in_production' | 'ready' | 'delivered'
@@ -98,7 +129,11 @@ export interface Order {
   paidAt: ISODate | null
   customization: Customization | null
   deliveryMethod: DeliveryMethod
-  deliveryAddress: string | null
+  shippingAddress: ShippingAddress | null
+  /** Frete escolhido; o valor já está somado em amountCents. */
+  shipping: ShippingChoice | null
+  /** Código de rastreio informado pelo admin ao despachar. */
+  trackingCode: string | null
   productionStatus: ProductionStatus | null
 }
 

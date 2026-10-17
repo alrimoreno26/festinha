@@ -18,8 +18,9 @@ describe('mensagem de pedido pago', () => {
       email: 'ana@x.com',
       phone: '(48) 99999-0000',
       customization: { childName: 'Miguel', age: '2 anos', theme: 'Safári', colors: '', notes: '' },
-      deliveryMethod: 'delivery',
-      deliveryAddress: 'Rua A, 1',
+      deliveryMethod: 'shipping',
+      shippingAddress: { postalCode: '01310100', street: 'Rua A', number: '1', complement: '', district: 'Centro', city: 'São Paulo', state: 'SP' },
+      shipping: { serviceId: 2, service: 'SEDEX', company: 'Correios', priceCents: 2190, minDays: 2, maxDays: 3 },
       newCustomer: true,
       appUrl: 'https://festinhas.test/',
     })
@@ -29,6 +30,8 @@ describe('mensagem de pedido pago', () => {
     expect(text).toContain('• Nome: Miguel')
     expect(text).not.toContain('Cores:')
     expect(text).toContain('Rua A, 1')
+    expect(text).toContain('Centro – São Paulo/SP – CEP 01310-100')
+    expect(text).toContain('Correios SEDEX')
     expect(text).toContain('https://wa.me/5548999990000')
     expect(text).toContain('href="https://festinhas.test/admin/pedidos/ord_1"')
   })

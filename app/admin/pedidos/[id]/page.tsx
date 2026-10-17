@@ -15,6 +15,7 @@ import {
   QueryState,
   useToast,
 } from '@/components/ui'
+import { addressLines, trackingUrl } from '@/lib/address'
 import { expiryText } from '@/lib/entitlements'
 import { formatBRL, formatDateTime } from '@/lib/format'
 import { devToolsEnabled } from '@/lib/dev/settings'
@@ -154,9 +155,25 @@ export default function PedidoPage({ params }: { params: { id: string } }) {
                 </Row>
                 <Row label="Conta">{customer ? 'Criada' : 'Ainda não (é criada quando o pagamento é aprovado)'}</Row>
                 {madeToOrder && <Row label="Recebimento">{DELIVERY_METHOD[order.deliveryMethod]}</Row>}
-                {order.deliveryAddress && (
+                {order.shipping && (
+                  <Row label="Frete">
+                    {[order.shipping.company, order.shipping.service].filter(Boolean).join(' ')} · {formatBRL(order.shipping.priceCents)}
+                  </Row>
+                )}
+                {order.shippingAddress && (
                   <Row label="Endereço">
-                    <span className="whitespace-pre-wrap">{order.deliveryAddress}</span>
+                    {addressLines(order.shippingAddress).map((line) => (
+                      <span key={line} className="block">
+                        {line}
+                      </span>
+                    ))}
+                  </Row>
+                )}
+                {order.trackingCode && (
+                  <Row label="Rastreio">
+                    <a href={trackingUrl(order.trackingCode)} target="_blank" rel="noreferrer" className="font-mono text-brand-grape hover:underline">
+                      {order.trackingCode}
+                    </a>
                   </Row>
                 )}
               </dl>

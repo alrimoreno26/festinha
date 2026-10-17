@@ -1,7 +1,7 @@
 // Fluxo público de compra. Com Mercado Pago, createOrder devolve o link do checkout do MP
 // (a confirmação chega pelo webhook). Sem MP, o link é o do simulador e `pay` faz o papel do MP.
 
-import type { CheckoutInput, PublicOrder } from '@/lib/contracts'
+import type { CheckoutInput, PublicOrder, ShippingQuote } from '@/lib/contracts'
 import { getDevSettings } from '@/lib/dev/settings'
 import type { PaymentMethod } from '@/lib/types'
 import { api, qs } from './http'
@@ -25,4 +25,9 @@ export const checkoutService = {
 
   /** Tentar de novo após recusa: cria um novo pedido com os mesmos dados. */
   retry: (orderId: string) => api<CheckoutStart>('POST', `/api/orders/${orderId}/retry`),
+}
+
+export const shippingService = {
+  /** Opções de frete (Melhor Envio) até o CEP. O valor final é recalculado no servidor ao criar o pedido. */
+  quote: (packageSlug: string, postalCode: string) => api<ShippingQuote>('POST', '/api/shipping/quote', { packageSlug, postalCode }),
 }

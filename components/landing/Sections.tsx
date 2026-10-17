@@ -85,7 +85,7 @@ const steps = [
   { title: 'Escolha o seu kit', desc: 'Kit digital pronto, arte personalizada ou papelaria impressa.' },
   { title: 'Conte os detalhes', desc: 'Nos personalizados, informe nome, idade, tema e cores no próprio pedido.' },
   { title: 'Pague com Pix ou cartão', desc: 'Pagamento seguro pelo Mercado Pago. O Pix é confirmado na hora.' },
-  { title: 'Receba', desc: 'Kit pronto: download na hora. Personalizado: a arte na sua Área do Cliente. Impresso: retirada ou entrega.' },
+  { title: 'Receba', desc: 'Kit pronto: download na hora. Personalizado: a arte na sua Área do Cliente. Impresso: retirada ou envio com rastreio.' },
   { title: 'Recorte e monte', desc: 'Caixinhas, tags, plaquinhas e lembrancinhas prontas para montar.' },
   { title: 'Faça uma linda festa!', desc: 'Agora é só celebrar e guardar as lembranças. 🎉' },
 ]
@@ -131,7 +131,7 @@ const options = [
   {
     n: 3,
     title: 'Impressão',
-    desc: 'Caixinhas, plaquinhas, tags e livrinhos impressos com capricho. Retirada no local ou entrega por motoboy/aplicativo.',
+    desc: 'Caixinhas, plaquinhas, tags e livrinhos impressos com capricho. Retirada no local ou envio para todo o Brasil.',
     cta: { label: 'Ver impressos', href: '/pacotes?tipo=printed' },
   },
 ]

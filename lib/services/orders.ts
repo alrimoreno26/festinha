@@ -31,8 +31,8 @@ export const ordersService = {
   reconcilePending: () => api<{ checked: number; updated: number }>('POST', '/api/admin/orders/reconcile'),
 
   /** Avança a produção (sob encomenda). `fileIds`: arquivos finais já enviados ao bucket (personalizado digital). */
-  updateProduction: (id: string, status: ProductionStatus, fileIds?: string[]) =>
-    api<AdminOrderDetail>('PATCH', `/api/admin/orders/${id}/production`, { status, fileIds }),
+  updateProduction: (id: string, status: ProductionStatus, fileIds?: string[], trackingCode?: string) =>
+    api<AdminOrderDetail>('PATCH', `/api/admin/orders/${id}/production`, { status, fileIds, trackingCode }),
 
   /** Tira um arquivo do pedido. */
   detachFile: (id: string, fileId: string) => api<AdminOrderDetail>('DELETE', `/api/admin/orders/${id}/files/${fileId}`),

@@ -5,19 +5,15 @@ import { Button, ButtonLink, Card, EmptyState, ErrorState, Field, Input, KindBad
 import { needsCustomization, needsName } from '@/lib/contracts'
 import { cn } from '@/lib/cn'
 import { formatBRL, formatPhoneBR } from '@/lib/format'
-import type { Customization, DeliveryMethod } from '@/lib/types'
+import { daysLabel, emptyDelivery, selectedOption, ShippingSection, type DeliveryState } from '@/components/checkout/ShippingSection'
+import type { Customization } from '@/lib/types'
 import { useSession } from '@/lib/hooks/useSession'
 import { checkoutService, errorMessage, packagesService, qk, ServiceError } from '@/lib/services'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Bike, ChevronLeft, Lock, SearchX, Store } from 'lucide-react'
+import { ChevronLeft, Lock, SearchX } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, type FormEvent } from 'react'
-
-const DELIVERY_OPTIONS = [
-  { value: 'pickup', icon: Store, title: 'Retirar no local', desc: 'Em horário combinado pelo WhatsApp.' },
-  { value: 'delivery', icon: Bike, title: 'Entrega', desc: 'Motoboy ou aplicativo. Valor pela distância, combinado no WhatsApp.' },
-] as const
 
 export default function CheckoutPage({ params }: { params: { slug: string } }) {
   const router = useRouter()
@@ -29,7 +25,7 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
 
   const [form, setForm] = useState({ name: '', email: '', phone: '' })
   const [custom, setCustom] = useState<Customization>({ childName: '', age: '', theme: '', colors: '', notes: '' })
-  const [delivery, setDelivery] = useState<{ method: DeliveryMethod | null; address: string }>({ method: null, address: '' })
+  const [delivery, setDelivery] = useState<DeliveryState>(emptyDelivery)
   const [accepted, setAccepted] = useState(false)
   const [touchedTerms, setTouchedTerms] = useState(false)
 
@@ -46,13 +42,17 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
         packageSlug: params.slug,
         ...form,
         ...(needsCustomization(pkg) && { customization: custom }),
-        ...(pkg.kind === 'printed' && { deliveryMethod: delivery.method ?? undefined, deliveryAddress: delivery.address }),
+        ...(pkg.kind === 'printed' && {
+          deliveryMethod: delivery.method ?? undefined,
+          ...(delivery.method === 'shipping' && { shippingAddress: delivery.address, shippingServiceId: delivery.serviceId ?? undefined }),
+        }),
       })
     },
     // Mercado Pago: página externa (navegação completa). Simulador: rota interna.
     onSuccess: ({ checkoutUrl }) => (/^https?:\/\//.test(checkoutUrl) ? window.location.assign(checkoutUrl) : router.push(checkoutUrl)),
   })
 
+  const shippingChoice = selectedOption(delivery)
   const fieldErrors = order.error instanceof ServiceError && order.error.code === 'VALIDATION' ? order.error.details ?? {} : {}
   const generalError = order.isError && !Object.keys(fieldErrors).length ? errorMessage(order.error) : null
 
@@ -146,46 +146,7 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
             )}
 
             {pkg.kind === 'printed' && (
-              <fieldset className="space-y-3 border-t border-brand-pink/30 pt-5">
-                <legend className="font-semibold text-gray-900">Como você quer receber?</legend>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {DELIVERY_OPTIONS.map(({ value, icon: Icon, title, desc }) => (
-                    <label
-                      key={value}
-                      className={cn(
-                        'flex cursor-pointer gap-3 rounded-2xl border-2 p-3 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-grape',
-                        delivery.method === value ? 'border-brand-rose bg-brand-blush' : 'border-gray-200 hover:border-brand-pink',
-                      )}
-                    >
-                      <input
-                        type="radio"
-                        name="delivery"
-                        value={value}
-                        checked={delivery.method === value}
-                        onChange={() => setDelivery((d) => ({ ...d, method: value }))}
-                        className="sr-only"
-                      />
-                      <Icon size={20} className="mt-0.5 shrink-0 text-brand-rose" />
-                      <span>
-                        <span className="block text-sm font-semibold text-gray-900">{title}</span>
-                        <span className="block text-xs text-gray-600">{desc}</span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-                {fieldErrors.deliveryMethod && <p className="text-sm text-red-600">{fieldErrors.deliveryMethod}</p>}
-                {delivery.method === 'delivery' && (
-                  <Field label="Endereço de entrega" hint="Rua, número, bairro e cidade." error={fieldErrors.deliveryAddress}>
-                    <Textarea
-                      value={delivery.address}
-                      onChange={(e) => setDelivery((d) => ({ ...d, address: e.target.value }))}
-                      rows={2}
-                      maxLength={500}
-                      autoComplete="street-address"
-                    />
-                  </Field>
-                )}
-              </fieldset>
+              <ShippingSection packageSlug={pkg.slug} shippable={pkg.shippable} value={delivery} onChange={setDelivery} errors={fieldErrors} />
             )}
 
             <label className={cn('flex items-start gap-3 text-sm', touchedTerms && !accepted ? 'text-red-600' : 'text-gray-700')}>
@@ -235,11 +196,26 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
             </div>
             <p className="mt-1 font-semibold text-gray-900">{pkg.title}</p>
             <p className="text-sm text-gray-600">{packageSummary(pkg)}</p>
-            {pkg.kind === 'printed' && <p className="mt-2 text-xs text-gray-500">A entrega por motoboy não está inclusa e é combinada à parte.</p>}
-            <div className="mt-4 flex items-center justify-between border-t border-black/5 pt-4">
-              <span className="text-gray-700">Total</span>
-              <span className="text-xl font-bold tabular-nums">{formatBRL(pkg.priceCents)}</span>
-            </div>
+            <dl className="mt-4 space-y-1.5 border-t border-black/5 pt-4 text-sm">
+              {pkg.kind === 'printed' && (
+                <>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-gray-600">Kit</dt>
+                    <dd className="tabular-nums">{formatBRL(pkg.priceCents)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-gray-600">{shippingChoice ? `Frete (${daysLabel(shippingChoice)})` : 'Frete'}</dt>
+                    <dd className="tabular-nums">
+                      {delivery.method === 'pickup' ? 'Grátis (retirada)' : shippingChoice ? formatBRL(shippingChoice.priceCents) : 'Informe o CEP'}
+                    </dd>
+                  </div>
+                </>
+              )}
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <dt className="text-base text-gray-700">Total</dt>
+                <dd className="text-xl font-bold tabular-nums">{formatBRL(pkg.priceCents + (shippingChoice?.priceCents ?? 0))}</dd>
+              </div>
+            </dl>
           </div>
         </Card>
       </div>

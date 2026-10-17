@@ -5,7 +5,7 @@
 
 import { checkoutSchema, needsCustomization, needsName, zodDetails, type CheckoutInput, type PublicOrder } from '@/lib/contracts'
 import { ServiceError } from '@/lib/services/errors'
-import type { Customization, DeliveryMethod, PaymentMethod } from '@/lib/types'
+import type { Customization, DeliveryMethod, PaymentMethod, ShippingAddress, ShippingChoice } from '@/lib/types'
 import { and, eq, isNotNull, lte } from 'drizzle-orm'
 import * as t from '../db/schema'
 import type { Db } from '../db/types'
@@ -13,6 +13,8 @@ import { newId } from '../ids'
 import { getPaymentGateway, type PaymentGateway } from '../payments'
 import { approveOrder } from './fulfillment'
 import { applyPayment } from './payments'
+import { quotePackage } from './shipping'
+import { getShippingQuoter, onlyDigits, type ShippingQuoter } from '../shipping'
 
 const PIX_TTL_MS = 30 * 60 * 1000
 
@@ -70,7 +72,8 @@ interface OrderData {
   method?: PaymentMethod
   customization: Customization | null
   deliveryMethod: DeliveryMethod
-  deliveryAddress: string | null
+  shippingAddress: ShippingAddress | null
+  shipping: ShippingChoice | null
 }
 
 type PackageRow = typeof t.packages.$inferSelect
@@ -79,7 +82,12 @@ type PackageRow = typeof t.packages.$inferSelect
  * Confere a personalização e a entrega exigidas pelo tipo de pacote.
  * Devolve só o que vale para este pacote (ex.: kit pronto não guarda personalização) e os erros por campo.
  */
-function orderExtras(pkg: PackageRow, input: Pick<CheckoutInput, 'customization' | 'deliveryMethod' | 'deliveryAddress'>) {
+async function orderExtras(
+  db: Db,
+  pkg: PackageRow,
+  input: Pick<CheckoutInput, 'customization' | 'deliveryMethod' | 'shippingAddress' | 'shippingServiceId'>,
+  quoter: ShippingQuoter,
+) {
   const errors: Record<string, string> = {}
   let customization: Customization | null = null
   if (needsCustomization(pkg)) {
@@ -90,16 +98,45 @@ function orderExtras(pkg: PackageRow, input: Pick<CheckoutInput, 'customization'
   }
 
   let deliveryMethod: DeliveryMethod = 'download'
-  let deliveryAddress: string | null = null
+  let shippingAddress: ShippingAddress | null = null
+  let shipping: ShippingChoice | null = null
   if (pkg.kind === 'printed') {
-    if (input.deliveryMethod !== 'pickup' && input.deliveryMethod !== 'delivery') errors.deliveryMethod = 'Escolha retirada ou entrega.'
+    if (input.deliveryMethod !== 'pickup' && input.deliveryMethod !== 'shipping') errors.deliveryMethod = 'Escolha retirada ou envio.'
     else deliveryMethod = input.deliveryMethod
-    if (deliveryMethod === 'delivery') {
-      deliveryAddress = input.deliveryAddress?.trim() || null
-      if (!deliveryAddress || deliveryAddress.length < 10) errors.deliveryAddress = 'Informe o endereço completo, com bairro.'
+    if (deliveryMethod === 'shipping') {
+      const a = { postalCode: '', street: '', number: '', complement: '', district: '', city: '', state: '', ...input.shippingAddress }
+      shippingAddress = {
+        postalCode: onlyDigits(a.postalCode),
+        street: a.street.trim(),
+        number: a.number.trim(),
+        complement: a.complement.trim(),
+        district: a.district.trim(),
+        city: a.city.trim(),
+        state: a.state.trim().toUpperCase(),
+      }
+      if (shippingAddress.postalCode.length !== 8) errors.postalCode = 'Informe um CEP com 8 dígitos.'
+      if (!shippingAddress.street) errors.street = 'Informe a rua.'
+      if (!shippingAddress.number) errors.number = 'Informe o número (ou "s/n").'
+      if (!shippingAddress.district) errors.district = 'Informe o bairro.'
+      if (!shippingAddress.city) errors.city = 'Informe a cidade.'
+      if (!/^[A-Z]{2}$/.test(shippingAddress.state)) errors.state = 'UF com 2 letras.'
+      if (!input.shippingServiceId) errors.shippingServiceId = 'Escolha uma opção de envio.'
+
+      // O frete é sempre recalculado aqui: o valor do navegador nunca é usado.
+      if (!errors.postalCode && input.shippingServiceId) {
+        try {
+          const options = await quotePackage(db, pkg, shippingAddress.postalCode, quoter)
+          shipping = options.find((o) => o.serviceId === input.shippingServiceId) ?? null
+          if (!shipping) errors.shippingServiceId = 'Esta opção de envio não está mais disponível. Escolha outra.'
+        } catch (err) {
+          if (!(err instanceof ServiceError)) throw err
+          if (err.code === 'VALIDATION' || err.code === 'NOT_FOUND') errors.postalCode = err.details?.postalCode ?? err.message
+          else throw err
+        }
+      }
     }
   }
-  return { errors, data: { customization, deliveryMethod, deliveryAddress } }
+  return { errors, data: { customization, deliveryMethod, shippingAddress, shipping } }
 }
 
 /** Cria o pedido pendente e, com Mercado Pago, a preferência de pagamento. */
@@ -111,8 +148,9 @@ async function openOrder(
   gateway: PaymentGateway,
 ) {
   const id = newId('ord')
-  // O preço vem sempre do banco, nunca do navegador.
-  await db.insert(t.orders).values({ id, ...data, packageId: pkg.id, amountCents: pkg.priceCents })
+  // O preço vem sempre do banco (e o frete, da cotação feita no servidor).
+  const amountCents = pkg.priceCents + (data.shipping?.priceCents ?? 0)
+  await db.insert(t.orders).values({ id, ...data, packageId: pkg.id, amountCents })
 
   if (gateway.kind === 'simulator' || !urls) return { orderId: id, checkoutUrl: `/simulador-mp/${id}` }
 
@@ -120,7 +158,8 @@ async function openOrder(
     orderId: id,
     title: pkg.title,
     packageId: pkg.id,
-    amountCents: pkg.priceCents,
+    amountCents,
+    shipping: data.shipping ? { title: `Frete ${[data.shipping.company, data.shipping.service].filter(Boolean).join(' ')}`, cents: data.shipping.priceCents } : null,
     payer: { name: data.name, email: data.email },
     returnUrl: `${urls.origin}/checkout/retorno?pedido=${id}`,
     notificationUrl: urls.notificationUrl,
@@ -130,7 +169,13 @@ async function openOrder(
   return { orderId: id, checkoutUrl: checkout.checkoutUrl }
 }
 
-export async function createOrder(db: Db, input: CheckoutInput, urls: CheckoutUrls | null = null, gateway: PaymentGateway = getPaymentGateway()) {
+export async function createOrder(
+  db: Db,
+  input: CheckoutInput,
+  urls: CheckoutUrls | null = null,
+  gateway: PaymentGateway = getPaymentGateway(),
+  quoter: ShippingQuoter = getShippingQuoter(),
+) {
   const [pkg] = await db
     .select()
     .from(t.packages)
@@ -139,7 +184,7 @@ export async function createOrder(db: Db, input: CheckoutInput, urls: CheckoutUr
 
   // Todos os erros de uma vez (dados pessoais + personalização + entrega), para o cliente corrigir num passo só.
   const parsed = checkoutSchema.safeParse(input)
-  const extras = orderExtras(pkg, parsed.success ? parsed.data : input)
+  const extras = await orderExtras(db, pkg, parsed.success ? parsed.data : input, quoter)
   const errors = { ...(parsed.success ? {} : zodDetails(parsed.error)), ...extras.errors }
   if (!parsed.success || Object.keys(errors).length) throw new ServiceError('VALIDATION', 'Revise os campos destacados.', errors)
 
@@ -218,7 +263,9 @@ export async function retry(db: Db, orderId: string, urls: CheckoutUrls | null =
     method: old.method,
     customization: old.customization ?? null,
     deliveryMethod: old.deliveryMethod,
-    deliveryAddress: old.deliveryAddress,
+    shippingAddress: old.shippingAddress ?? null,
+    // Mantém o frete escolhido na primeira tentativa.
+    shipping: old.shipping ?? null,
   }
   return openOrder(db, data, pkg, urls, gateway)
 }

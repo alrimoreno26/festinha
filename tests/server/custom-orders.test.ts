@@ -27,6 +27,7 @@ const base = (over: Partial<PackageInput>): PackageInput => ({
     { name: 'Caixa Cone', quantity: 5 },
   ],
   customizationLevel: 'none',
+  shippingBox: null,
   ...over,
 })
 
@@ -59,22 +60,13 @@ describe('checkout com personalização', () => {
       code: 'VALIDATION',
       details: { childName: expect.any(String), theme: expect.any(String), deliveryMethod: expect.any(String) },
     })
-    await expect(
-      checkout.createOrder(db, { packageSlug: pkg.slug, ...buyer, customization: details, deliveryMethod: 'delivery', deliveryAddress: '' }),
-    ).rejects.toMatchObject({ details: { deliveryAddress: expect.any(String) } })
   })
 
-  it('guarda a personalização e o endereço no pedido', async () => {
+  it('guarda a personalização no pedido com retirada (sem frete)', async () => {
     const { db, pkg } = await setup()
-    const { orderId } = await checkout.createOrder(db, {
-      packageSlug: pkg.slug,
-      ...buyer,
-      customization: details,
-      deliveryMethod: 'delivery',
-      deliveryAddress: 'Rua das Flores, 10 - Ingleses',
-    })
+    const { orderId } = await checkout.createOrder(db, { packageSlug: pkg.slug, ...buyer, customization: details, deliveryMethod: 'pickup' })
     const [order] = await db.select().from(t.orders).where(eq(t.orders.id, orderId))
-    expect(order).toMatchObject({ customization: details, deliveryMethod: 'delivery', deliveryAddress: 'Rua das Flores, 10 - Ingleses', amountCents: 4200 })
+    expect(order).toMatchObject({ customization: details, deliveryMethod: 'pickup', shippingAddress: null, shipping: null, amountCents: 4200 })
   })
 
   it('tema individual pede só o tema (sem nome)', async () => {
@@ -88,9 +80,9 @@ describe('checkout com personalização', () => {
 
   it('kit digital pronto ignora personalização e entrega enviadas', async () => {
     const { db } = await createSeededDb()
-    const { orderId } = await checkout.createOrder(db, { packageSlug: 'kit-safari', ...buyer, customization: details, deliveryMethod: 'delivery' })
+    const { orderId } = await checkout.createOrder(db, { packageSlug: 'kit-safari', ...buyer, customization: details, deliveryMethod: 'shipping' })
     const [order] = await db.select().from(t.orders).where(eq(t.orders.id, orderId))
-    expect(order).toMatchObject({ customization: null, deliveryMethod: 'download', deliveryAddress: null })
+    expect(order).toMatchObject({ customization: null, deliveryMethod: 'download', shippingAddress: null, shipping: null })
   })
 })
 

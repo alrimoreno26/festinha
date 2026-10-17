@@ -4,6 +4,7 @@
 //
 // Só cria os que ainda não existem (pelo endereço/slug): rodar de novo não duplica nem sobrescreve
 // o que você já editou no backoffice. O kit digital pronto entra oculto até você escolher os arquivos.
+// Impressos já cadastrados sem medidas de embalagem recebem as medidas estimadas (as já preenchidas não mudam).
 // Usa o banco do .env.local; para produção, rode com a URL da branch "production".
 
 import type { PackageInput } from '../lib/contracts'
@@ -13,13 +14,23 @@ import * as t from '../lib/server/db/schema'
 import * as packages from '../lib/server/domain/packages'
 import { toUser } from '../lib/server/mappers'
 
-const pkg = (p: Omit<PackageInput, 'coverUrl' | 'accessDays' | 'fileIds' | 'customizationLevel'> & Partial<PackageInput>): PackageInput => ({
+const pkg = (p: Omit<PackageInput, 'coverUrl' | 'accessDays' | 'fileIds' | 'customizationLevel' | 'shippingBox'> & Partial<PackageInput>): PackageInput => ({
   coverUrl: null,
   accessDays: null,
   fileIds: [],
   customizationLevel: 'full',
+  shippingBox: null,
   ...p,
 })
+
+// Medidas ESTIMADAS da embalagem de cada impresso (peso em gramas, medidas em cm).
+// Pese e meça a caixa de verdade e corrija no backoffice: o frete cobrado depende disso.
+const BOX = {
+  lembrancinhas: { weightGrams: 600, heightCm: 15, widthCm: 20, lengthCm: 30 },
+  plaquinhas: { weightGrams: 300, heightCm: 5, widthCm: 20, lengthCm: 25 },
+  livrinhos: { weightGrams: 500, heightCm: 5, widthCm: 18, lengthCm: 25 },
+  tags: { weightGrams: 200, heightCm: 4, widthCm: 15, lengthCm: 20 },
+}
 
 const CATALOG: PackageInput[] = [
   // ---- Impressos ----
@@ -27,6 +38,7 @@ const CATALOG: PackageInput[] = [
     title: 'Lembrancinhas – 20 caixinhas',
     slug: 'lembrancinhas-20-caixinhas',
     kind: 'printed',
+    shippingBox: BOX.lembrancinhas,
     priceCents: 4200,
     active: true,
     coverUrl: '/galeria/caixinhas-personalizadas.webp',
@@ -43,6 +55,7 @@ const CATALOG: PackageInput[] = [
     title: 'Plaquinhas de mesa',
     slug: 'plaquinhas-de-mesa',
     kind: 'printed',
+    shippingBox: BOX.plaquinhas,
     priceCents: 3400,
     active: true,
     coverUrl: '/galeria/plaquinhas-de-mesa.webp',
@@ -54,6 +67,7 @@ const CATALOG: PackageInput[] = [
     title: 'Livrinhos de colorir',
     slug: 'livrinhos-de-colorir',
     kind: 'printed',
+    shippingBox: BOX.livrinhos,
     priceCents: 3500,
     active: true,
     coverUrl: '/galeria/livrinhos-de-colorir.webp',
@@ -64,6 +78,7 @@ const CATALOG: PackageInput[] = [
     title: 'Tags de papel personalizadas',
     slug: 'tags-de-papel-personalizadas',
     kind: 'printed',
+    shippingBox: BOX.tags,
     priceCents: 3300,
     active: true,
     coverUrl: '/galeria/tags-personalizadas.webp',
@@ -120,11 +135,15 @@ async function main() {
   const [admin] = await db.select().from(t.users).where(eq(t.users.role, 'admin')).limit(1)
   if (!admin) throw new Error('Nenhum administrador encontrado. Crie um com npm run admin:create.')
   const actor = toUser(admin)
-  const existing = new Set((await db.select({ slug: t.packages.slug }).from(t.packages)).map((p) => p.slug))
+  const existing = new Map((await db.select({ id: t.packages.id, slug: t.packages.slug, shippingBox: t.packages.shippingBox }).from(t.packages)).map((p) => [p.slug, p]))
 
   for (const input of CATALOG) {
-    if (existing.has(input.slug)) {
-      console.log(`= ${input.title} (já existe, mantido)`)
+    const found = existing.get(input.slug)
+    if (found) {
+      if (!found.shippingBox && input.shippingBox) {
+        await db.update(t.packages).set({ shippingBox: input.shippingBox, updatedAt: new Date() }).where(eq(t.packages.id, found.id))
+        console.log(`~ ${input.title} (já existe; medidas estimadas da embalagem adicionadas)`)
+      } else console.log(`= ${input.title} (já existe, mantido)`)
       continue
     }
     await packages.create(db, actor, input)

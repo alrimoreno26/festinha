@@ -15,6 +15,7 @@ import {
   QueryState,
   useToast,
 } from '@/components/ui'
+import { addressLines, trackingUrl } from '@/lib/address'
 import { triggerDownload } from '@/lib/download'
 import { formatBRL, formatBytes, formatDate } from '@/lib/format'
 import { accountService, errorMessage, qk } from '@/lib/services'
@@ -29,7 +30,7 @@ function progressText(o: MyOrder) {
   if (o.productionStatus === 'delivered')
     return o.packageKind === 'custom_digital' ? 'Sua arte está pronta! Baixe os arquivos abaixo.' : 'Pedido entregue. Boa festa! 🎉'
   if (o.productionStatus === 'ready')
-    return o.deliveryMethod === 'delivery' ? 'Pronto! Vamos combinar a entrega pelo WhatsApp.' : 'Pronto para retirada! Vamos combinar o horário pelo WhatsApp.'
+    return o.deliveryMethod === 'shipping' ? 'Seu pedido foi enviado! Acompanhe pelo rastreio abaixo.' : 'Pronto para retirada! Vamos combinar o horário pelo WhatsApp.'
   return o.packageKind === 'printed' ? 'Estamos produzindo seu kit com muito carinho.' : 'Estamos criando sua arte com muito carinho.'
 }
 
@@ -86,7 +87,20 @@ function OrderCard({ order: o }: { order: MyOrder }) {
       </div>
 
       {progress && <p className="mt-3 rounded-2xl bg-brand-blush px-4 py-2.5 text-sm text-brand-ink">{progress}</p>}
-      {o.packageKind === 'printed' && o.status === 'approved' && <p className="mt-2 text-xs text-gray-500">{DELIVERY_METHOD[o.deliveryMethod]}</p>}
+      {o.packageKind === 'printed' && o.status === 'approved' && (
+        <div className="mt-2 text-xs text-gray-500">
+          <p>
+            {DELIVERY_METHOD[o.deliveryMethod]}
+            {o.shipping && ` · ${[o.shipping.company, o.shipping.service].filter(Boolean).join(' ')} (${formatBRL(o.shipping.priceCents)})`}
+          </p>
+          {o.shippingAddress && <p>{addressLines(o.shippingAddress).join(' · ')}</p>}
+          {o.trackingCode && (
+            <a href={trackingUrl(o.trackingCode)} target="_blank" rel="noreferrer" className="mt-1 inline-flex font-semibold text-brand-grape hover:underline">
+              Rastrear: {o.trackingCode}
+            </a>
+          )}
+        </div>
+      )}
       {o.files.length > 0 && <OrderFiles files={o.files} />}
     </Card>
   )

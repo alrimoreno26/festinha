@@ -94,7 +94,7 @@ export function orderReceived(p: {
   customization: Parameters<typeof customizationLines>[0]
 }): EmailMessage {
   const next = p.printed
-    ? 'Vamos produzir tudo com muito carinho e avisamos por aqui e pelo WhatsApp quando estiver pronto para retirada ou entrega.'
+    ? 'Vamos produzir tudo com muito carinho e avisamos por email quando estiver pronto para retirada ou quando for enviado (com o código de rastreio).'
     : 'Vamos criar sua arte com muito carinho e avisamos por email quando o arquivo estiver pronto para baixar na sua Área do Cliente.'
   const access = p.tempPassword
     ? `\n\nAcompanhe seu pedido na Área do Cliente com:\nEmail: ${p.email}\nSenha temporária: ${p.tempPassword}`
@@ -117,14 +117,23 @@ export function customReady(p: { name: string; kit: string }): EmailMessage {
   }
 }
 
-/** Kit impresso pronto. */
-export function printedReady(p: { name: string; kit: string; delivery: boolean }): EmailMessage {
+/** Kit impresso pronto para retirada. */
+export function printedReady(p: { name: string; kit: string }): EmailMessage {
   return {
     subject: `Seu ${p.kit} está pronto! 🎉`,
-    body: p.delivery
-      ? `Olá, ${p.name}! Seu pedido está pronto. Vamos chamar você no WhatsApp para combinar a entrega e o valor do motoboy.`
-      : `Olá, ${p.name}! Seu pedido está pronto para retirada. Vamos chamar você no WhatsApp para combinar o melhor horário.`,
+    body: `Olá, ${p.name}! Seu pedido está pronto para retirada. Vamos chamar você no WhatsApp para combinar o melhor horário.`,
     actionUrl: '/conta/pedidos',
     actionLabel: 'Ver meu pedido',
+  }
+}
+
+/** Kit impresso despachado pelos Correios/transportadora. */
+export function printedShipped(p: { name: string; kit: string; carrier: string; trackingCode: string | null; trackingUrl: string | null }): EmailMessage {
+  const tracking = p.trackingCode ? `\n\nCódigo de rastreio: ${p.trackingCode}` : ''
+  return {
+    subject: `Seu ${p.kit} foi enviado! 📦`,
+    body: `Olá, ${p.name}! Seu pedido já está a caminho${p.carrier ? ` pela ${p.carrier}` : ''}.${tracking}\n\nO prazo começa a contar a partir de agora, em dias úteis.`,
+    actionUrl: p.trackingUrl ?? '/conta/pedidos',
+    actionLabel: p.trackingUrl ? 'Rastrear pedido' : 'Ver meu pedido',
   }
 }

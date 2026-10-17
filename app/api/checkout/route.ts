@@ -9,8 +9,9 @@ const schema = z.object({
   email: z.string(),
   phone: z.string(),
   customization: z.record(z.string().max(2000)).optional(),
-  deliveryMethod: z.enum(['download', 'pickup', 'delivery']).optional(),
-  deliveryAddress: z.string().max(500).optional(),
+  deliveryMethod: z.enum(['download', 'pickup', 'shipping']).optional(),
+  shippingAddress: z.record(z.string().max(200)).optional(),
+  shippingServiceId: z.number().int().optional(),
 })
 
 /** Cria o pedido e, com Mercado Pago, a preferência de pagamento (devolve o link do checkout). */

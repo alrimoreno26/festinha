@@ -18,7 +18,7 @@ import {
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
-import type { Customization, PackageItem } from '@/lib/types'
+import type { Customization, PackageItem, ShippingAddress, ShippingBox, ShippingChoice } from '@/lib/types'
 
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 const tstz = (name: string) => timestamp(name, { withTimezone: true })
@@ -28,7 +28,7 @@ export const orderStatusEnum = pgEnum('order_status', ['pending', 'approved', 'r
 export const paymentMethodEnum = pgEnum('payment_method', ['pix', 'card'])
 export const grantTypeEnum = pgEnum('grant_type', ['purchase', 'manual'])
 export const packageKindEnum = pgEnum('package_kind', ['digital', 'custom_digital', 'printed'])
-export const deliveryMethodEnum = pgEnum('delivery_method', ['download', 'pickup', 'delivery'])
+export const deliveryMethodEnum = pgEnum('delivery_method', ['download', 'pickup', 'shipping'])
 export const productionStatusEnum = pgEnum('production_status', ['in_production', 'ready', 'delivered'])
 export const customizationLevelEnum = pgEnum('customization_level', ['none', 'theme', 'full'])
 
@@ -126,6 +126,8 @@ export const packages = pgTable(
     kind: packageKindEnum('kind').notNull().default('digital'),
     items: jsonb('items').$type<PackageItem[]>().notNull().default([]),
     customizationLevel: customizationLevelEnum('customization_level').notNull().default('none'),
+    /** Impressos: medidas e peso da embalagem, para cotar o frete. */
+    shippingBox: jsonb('shipping_box').$type<ShippingBox>(),
     createdAt: createdAt(),
     updatedAt: tstz('updated_at').notNull().defaultNow(),
   },
@@ -183,7 +185,10 @@ export const orders = pgTable(
     // Personalização e entrega
     customization: jsonb('customization').$type<Customization>(),
     deliveryMethod: deliveryMethodEnum('delivery_method').notNull().default('download'),
-    deliveryAddress: text('delivery_address'),
+    shippingAddress: jsonb('shipping_address').$type<ShippingAddress>(),
+    /** Frete cotado e escolhido no checkout (o valor já está em amount_cents). */
+    shipping: jsonb('shipping').$type<ShippingChoice>(),
+    trackingCode: text('tracking_code'),
     /** Andamento de pedidos sob encomenda; null para kits digitais prontos. */
     productionStatus: productionStatusEnum('production_status'),
   },

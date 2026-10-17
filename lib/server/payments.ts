@@ -22,7 +22,10 @@ export interface CheckoutRequest {
   orderId: string
   title: string
   packageId: string
+  /** Total cobrado (pacote + frete). */
   amountCents: number
+  /** Parte do total que é frete (vira um item separado no checkout do MP). */
+  shipping?: { title: string; cents: number } | null
   payer: { name: string; email: string }
   /** Para onde o MP devolve o cliente (sucesso, pendente ou falha). */
   returnUrl: string
@@ -114,10 +117,13 @@ function mercadoPago(accessToken: string): PaymentGateway {
               id: req.packageId,
               title: req.title,
               quantity: 1,
-              unit_price: req.amountCents / 100,
+              unit_price: (req.amountCents - (req.shipping?.cents ?? 0)) / 100,
               currency_id: 'BRL',
               category_id: 'others',
             },
+            ...(req.shipping?.cents
+              ? [{ id: 'frete', title: req.shipping.title, quantity: 1, unit_price: req.shipping.cents / 100, currency_id: 'BRL', category_id: 'services' }]
+              : []),
           ],
           // O email pré-preenche o checkout e ajuda o antifraude do MP (o nosso pedido guarda o email de qualquer forma).
           // Não enviamos em conta de teste nem para domínios reservados (.test, .example…): o MP recusaria o pagamento.

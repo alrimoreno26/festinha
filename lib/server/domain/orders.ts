@@ -4,6 +4,7 @@ import { ServiceError } from '@/lib/services/errors'
 import type { ProductionStatus } from '@/lib/types'
 import { and, asc, desc, eq, gte, ilike, inArray, or, sql, type SQL } from 'drizzle-orm'
 import type { z } from 'zod'
+import { trackingUrl } from '@/lib/address'
 import * as messages from '../email/messages'
 import * as t from '../db/schema'
 import type { Db } from '../db/types'
@@ -82,6 +83,7 @@ export async function updateProduction(db: Db, actor: Actor, id: string, input: 
   const parsed = productionUpdateSchema.safeParse(input)
   if (!parsed.success) throw new ServiceError('VALIDATION', 'Dados inválidos.')
   const { status, fileIds = [] } = parsed.data
+  const trackingCode = parsed.data.trackingCode?.toUpperCase() || null
 
   await db.transaction(async (tx) => {
     const [row] = await tx
@@ -115,13 +117,31 @@ export async function updateProduction(db: Db, actor: Actor, id: string, input: 
       if (!count) throw new ServiceError('VALIDATION', 'Envie o arquivo final antes de marcar como entregue.')
     }
 
+    const shipped = pkg.kind === 'printed' && order.deliveryMethod === 'shipping'
+    if (trackingCode && !shipped) throw new ServiceError('VALIDATION', 'Só pedidos enviados têm código de rastreio.')
+    // Corrigir o código de rastreio sem mudar a etapa.
+    if (trackingCode && trackingCode !== order.trackingCode) await tx.update(t.orders).set({ trackingCode }).where(eq(t.orders.id, id))
+
     if (status === order.productionStatus) return
     await tx.update(t.orders).set({ productionStatus: status }).where(eq(t.orders.id, id))
 
     if (pkg.kind === 'custom_digital' && status === 'delivered')
       await sendEmail(tx, { to: order.email, ...messages.customReady({ name: order.name, kit: pkg.title }) })
-    if (pkg.kind === 'printed' && status === 'ready')
-      await sendEmail(tx, { to: order.email, ...messages.printedReady({ name: order.name, kit: pkg.title, delivery: order.deliveryMethod === 'delivery' }) })
+    if (pkg.kind === 'printed' && status === 'ready') {
+      const code = trackingCode ?? order.trackingCode
+      await sendEmail(tx, {
+        to: order.email,
+        ...(shipped
+          ? messages.printedShipped({
+              name: order.name,
+              kit: pkg.title,
+              carrier: order.shipping?.company ?? '',
+              trackingCode: code,
+              trackingUrl: code ? trackingUrl(code) : null,
+            })
+          : messages.printedReady({ name: order.name, kit: pkg.title })),
+      })
+    }
   })
   return get(db, actor, id)
 }

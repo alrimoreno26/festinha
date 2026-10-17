@@ -10,5 +10,5 @@ export const KIND_LABEL: Record<PackageKind, string> = {
 export const DELIVERY_LABEL: Record<DeliveryMethod, string> = {
   download: 'Download na Área do Cliente',
   pickup: 'Retirada no local',
-  delivery: 'Entrega (motoboy/aplicativo)',
+  shipping: 'Envio pelos Correios/transportadora',
 }

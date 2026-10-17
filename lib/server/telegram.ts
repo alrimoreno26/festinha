@@ -7,8 +7,9 @@
 //
 // As mensagens passam por uma fila (telegram_outbox), como os emails: se o Telegram falhar, tentamos de novo depois.
 
+import { addressLines } from '@/lib/address'
 import { DELIVERY_LABEL, KIND_LABEL } from '@/lib/labels'
-import type { Customization, DeliveryMethod, PackageKind, PaymentMethod } from '@/lib/types'
+import type { Customization, DeliveryMethod, PackageKind, PaymentMethod, ShippingAddress, ShippingChoice } from '@/lib/types'
 import { and, eq, isNull, lt, lte, sql } from 'drizzle-orm'
 import * as t from './db/schema'
 import type { Db } from './db/types'
@@ -73,7 +74,8 @@ export interface OrderNotice {
   phone: string
   customization: Customization | null
   deliveryMethod: DeliveryMethod
-  deliveryAddress: string | null
+  shippingAddress: ShippingAddress | null
+  shipping: ShippingChoice | null
   /** Primeira compra deste email. */
   newCustomer: boolean
   appUrl: string
@@ -96,7 +98,7 @@ export function orderPaidMessage(o: OrderNotice) {
     '',
     `📦 <b>${esc(o.packageTitle)}</b>`,
     `🏷️ ${KIND_LABEL[o.packageKind]}`,
-    `💰 <b>${brl(o.amountCents)}</b> · ${o.method === 'pix' ? 'Pix' : 'Cartão'}`,
+    `💰 <b>${brl(o.amountCents)}</b> · ${o.method === 'pix' ? 'Pix' : 'Cartão'}${o.shipping ? ` <i>(frete ${brl(o.shipping.priceCents)} incluso)</i>` : ''}`,
     '',
     `👤 ${esc(o.name)}${o.newCustomer ? ' <i>(cliente nova)</i>' : ''}`,
     `📱 <a href="${wa}">${esc(o.phone)}</a> (WhatsApp)`,
@@ -110,14 +112,23 @@ export function orderPaidMessage(o: OrderNotice) {
   }
 
   if (o.packageKind === 'printed') {
-    lines.push('', `${o.deliveryMethod === 'delivery' ? '🛵' : '🎁'} <b>${DELIVERY_LABEL[o.deliveryMethod]}</b>`)
-    if (o.deliveryAddress) lines.push(esc(o.deliveryAddress))
+    if (o.deliveryMethod === 'shipping' && o.shipping) {
+      const days = o.shipping.minDays === o.shipping.maxDays ? `${o.shipping.maxDays}` : `${o.shipping.minDays}–${o.shipping.maxDays}`
+      lines.push('', `📮 <b>Envio: ${esc([o.shipping.company, o.shipping.service].filter(Boolean).join(' '))}</b> · ${brl(o.shipping.priceCents)} · ${days} dias úteis`)
+    } else {
+      lines.push('', `🎁 <b>${DELIVERY_LABEL[o.deliveryMethod]}</b>`)
+    }
+    if (o.shippingAddress) for (const line of addressLines(o.shippingAddress)) lines.push(esc(line))
   } else if (o.packageKind === 'digital') {
     lines.push('', '⚡ Download liberado automaticamente.')
   }
 
   const next =
-    o.packageKind === 'digital' ? null : o.packageKind === 'printed' ? 'Produzir e combinar a retirada/entrega.' : 'Criar a arte e enviar o arquivo no pedido.'
+    o.packageKind === 'digital' ? null : o.packageKind === 'printed'
+        ? o.deliveryMethod === 'shipping'
+          ? 'Produzir, comprar a etiqueta no Melhor Envio e informar o rastreio no pedido.'
+          : 'Produzir e combinar o horário da retirada.'
+        : 'Criar a arte e enviar o arquivo no pedido.'
   if (next) lines.push('', `👉 ${next}`)
 
   lines.push('', `🧾 <code>${o.orderId}</code>`, `<a href="${o.appUrl.replace(/\/+$/, '')}/admin/pedidos/${o.orderId}">Abrir no backoffice</a>`)

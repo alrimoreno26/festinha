@@ -19,6 +19,7 @@ const input = (over: Partial<PackageInput> = {}): PackageInput => ({
   kind: 'digital',
   items: [],
   customizationLevel: 'none',
+  shippingBox: null,
   ...over,
 })
 

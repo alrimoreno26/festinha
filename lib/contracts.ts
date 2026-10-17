@@ -14,6 +14,7 @@ import type {
   PackageKind,
   PaymentMethod,
   ProductionStatus,
+  ShippingChoice,
   User,
 } from './types'
 
@@ -23,7 +24,7 @@ import type {
 
 export type PackageInput = Pick<
   Package,
-  'title' | 'slug' | 'description' | 'coverUrl' | 'priceCents' | 'active' | 'accessDays' | 'fileIds' | 'kind' | 'items' | 'customizationLevel'
+  'title' | 'slug' | 'description' | 'coverUrl' | 'priceCents' | 'active' | 'accessDays' | 'fileIds' | 'kind' | 'items' | 'customizationLevel' | 'shippingBox'
 >
 
 export const needsCustomization = (pkg: Pick<Package, 'customizationLevel'>) => pkg.customizationLevel !== 'none'
@@ -41,6 +42,8 @@ export function customizationFor(kind: PackageKind, level: CustomizationLevel): 
 export type PublicFile = Pick<FileItem, 'filename' | 'mime' | 'size'>
 
 export interface PublicPackage extends Omit<Package, 'fileIds' | 'active'> {
+  /** Impresso com envio disponível (medidas cadastradas e frete configurado). */
+  shippable: boolean
   files: PublicFile[]
 }
 
@@ -98,11 +101,27 @@ export const customizationSchema = z.object({
   notes: z.string().trim().max(2000).default(''),
 })
 
+export const shippingAddressSchema = z.object({
+  postalCode: z.string().trim().max(9).default(''),
+  street: z.string().trim().max(200).default(''),
+  number: z.string().trim().max(20).default(''),
+  complement: z.string().trim().max(100).default(''),
+  district: z.string().trim().max(100).default(''),
+  city: z.string().trim().max(100).default(''),
+  state: z.string().trim().max(2).default(''),
+})
+
+export interface ShippingQuote {
+  options: ShippingChoice[]
+}
+
 export const checkoutSchema = z.object({
   packageSlug: z.string().min(1),
   customization: customizationSchema.optional(),
-  deliveryMethod: z.enum(['download', 'pickup', 'delivery']).optional(),
-  deliveryAddress: z.string().trim().max(500).optional(),
+  deliveryMethod: z.enum(['download', 'pickup', 'shipping']).optional(),
+  shippingAddress: shippingAddressSchema.optional(),
+  /** Serviço escolhido entre as opções da cotação; o preço é recalculado no servidor. */
+  shippingServiceId: z.number().int().optional(),
   name: z.string().trim().min(3, 'Informe seu nome completo.'),
   email: z.string().trim().toLowerCase().email('Informe um email válido.'),
   phone: z
@@ -154,6 +173,8 @@ export interface AdminOrderRow extends Order {
 
 export const productionUpdateSchema = z.object({
   status: z.enum(['in_production', 'ready', 'delivered']),
+  /** Código de rastreio, ao marcar um pedido enviado como "despachado". */
+  trackingCode: z.string().trim().max(60).optional(),
   /** Arquivos finais (personalizado digital), já enviados ao bucket. */
   fileIds: z.array(z.string()).max(50).optional(),
 })

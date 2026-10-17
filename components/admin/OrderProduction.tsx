@@ -3,7 +3,8 @@
 // Pedidos sob encomenda no backoffice: o que o cliente pediu, como recebe e o andamento da produção
 // (no personalizado digital, também o envio do arquivo final).
 
-import { Button, Card, DELIVERY_METHOD, Dropzone, FileIcon, ProductionBadge, PRODUCTION_STATUS, Spinner, useToast } from '@/components/ui'
+import { Button, Card, DELIVERY_METHOD, Dropzone, Field, FileIcon, Input, ProductionBadge, PRODUCTION_STATUS, Spinner, useToast } from '@/components/ui'
+import { addressLines } from '@/lib/address'
 import { formatBytes } from '@/lib/format'
 import { errorMessage, filesService, ordersService, qk } from '@/lib/services'
 import type { AdminOrderDetail } from '@/lib/services/orders'
@@ -76,6 +77,10 @@ export function ProductionCard({ detail }: { detail: AdminOrderDetail }) {
   const steps = STEPS[kind]
   const current = order.productionStatus
   const [uploading, setUploading] = useState<{ name: string; progress: number } | null>(null)
+  const shipped = kind === 'printed' && order.deliveryMethod === 'shipping'
+  const [tracking, setTracking] = useState(order.trackingCode ?? '')
+  // "Pronto" significa "despachado" quando o pedido vai pelos Correios/transportadora.
+  const stepLabel = (s: ProductionStatus) => (shipped && s === 'ready' ? 'Enviado' : PRODUCTION_STATUS[s].label)
 
   const refresh = (data: AdminOrderDetail) => {
     queryClient.setQueryData(qk.order(order.id), data)
@@ -83,15 +88,20 @@ export function ProductionCard({ detail }: { detail: AdminOrderDetail }) {
   }
 
   const update = useMutation({
-    mutationFn: ({ status, fileIds }: { status: ProductionStatus; fileIds?: string[] }) => ordersService.updateProduction(order.id, status, fileIds),
+    mutationFn: ({ status, fileIds, trackingCode }: { status: ProductionStatus; fileIds?: string[]; trackingCode?: string }) =>
+      ordersService.updateProduction(order.id, status, fileIds, trackingCode),
     onSuccess: (data, { status }) => {
       refresh(data)
       toast.success(
         status === 'delivered' && kind === 'custom_digital'
           ? 'Pedido entregue: o cliente foi avisado por email.'
           : status === 'ready'
-            ? 'Pedido pronto: o cliente foi avisado por email.'
-            : `Etapa: ${PRODUCTION_STATUS[status].label}.`,
+            ? shipped
+              ? 'Pedido enviado: o cliente recebeu o rastreio por email.'
+              : 'Pedido pronto: o cliente foi avisado por email.'
+            : status === current
+              ? 'Código de rastreio atualizado.'
+              : `Etapa: ${stepLabel(status)}.`,
       )
     },
     onError: (err) => toast.error(errorMessage(err)),
@@ -157,7 +167,7 @@ export function ProductionCard({ detail }: { detail: AdminOrderDetail }) {
                     : 'inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-gray-500'
               }
             >
-              {i < index && <Check size={14} />} {PRODUCTION_STATUS[s].label}
+              {i < index && <Check size={14} />} {stepLabel(s)}
             </span>
           </li>
         ))}
@@ -209,16 +219,43 @@ export function ProductionCard({ detail }: { detail: AdminOrderDetail }) {
       )}
 
       {kind === 'printed' && (
-        <p className="mt-4 text-sm text-gray-600">
-          {DELIVERY_METHOD[order.deliveryMethod]}
-          {order.deliveryMethod === 'delivery' && ': combine o valor do motoboy pelo WhatsApp antes de enviar.'}
-        </p>
+        <div className="mt-4 space-y-3 text-sm text-gray-600">
+          <p>
+            <strong className="text-gray-800">{DELIVERY_METHOD[order.deliveryMethod]}</strong>
+            {order.shipping && ` · ${[order.shipping.company, order.shipping.service].filter(Boolean).join(' ')}`}
+            {order.deliveryMethod === 'pickup' && ': combine o horário pelo WhatsApp quando estiver pronto.'}
+          </p>
+          {shipped && order.shippingAddress && (
+            <div className="rounded-2xl bg-gray-50 p-3 text-gray-700">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Enviar para</p>
+              <p className="mt-1 font-medium">{order.name}</p>
+              {addressLines(order.shippingAddress).map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+              <p className="mt-2 text-xs text-gray-500">Compre a etiqueta no painel do Melhor Envio com este endereço e cole o código de rastreio abaixo.</p>
+            </div>
+          )}
+          {shipped && current !== 'delivered' && (
+            <Field label="Código de rastreio" hint="Vai no email de envio para o cliente acompanhar.">
+              <Input value={tracking} onChange={(e) => setTracking(e.target.value.toUpperCase())} placeholder="Ex.: AA123456789BR" maxLength={60} />
+            </Field>
+          )}
+        </div>
       )}
 
       <div className="mt-5 flex flex-wrap gap-2">
         {next && (
-          <Button onClick={() => update.mutate({ status: next })} loading={update.isPending} disabled={needsFile || !!uploading}>
-            {NEXT_LABEL[next]}
+          <Button
+            onClick={() => update.mutate({ status: next, trackingCode: shipped ? tracking.trim() || undefined : undefined })}
+            loading={update.isPending}
+            disabled={needsFile || !!uploading || (shipped && next === 'ready' && !tracking.trim())}
+          >
+            {shipped && next === 'ready' ? 'Marcar como enviado (avisa o cliente)' : NEXT_LABEL[next]}
+          </Button>
+        )}
+        {shipped && current === 'ready' && tracking.trim() && tracking.trim() !== (order.trackingCode ?? '') && (
+          <Button variant="outline" onClick={() => update.mutate({ status: 'ready', trackingCode: tracking.trim() })} disabled={update.isPending}>
+            Salvar código de rastreio
           </Button>
         )}
         {index > 0 && current !== 'delivered' && (
@@ -228,6 +265,7 @@ export function ProductionCard({ detail }: { detail: AdminOrderDetail }) {
         )}
       </div>
       {needsFile && <p className="mt-2 text-xs text-gray-500">Envie o arquivo final para poder entregar.</p>}
+      {shipped && next === 'ready' && !tracking.trim() && <p className="mt-2 text-xs text-gray-500">Informe o código de rastreio para marcar como enviado.</p>}
     </Card>
   )
 }

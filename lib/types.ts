@@ -32,13 +32,24 @@ export interface FileItem {
  */
 export type PackageKind = 'digital' | 'custom_digital' | 'printed'
 
+/** Linha de produtos: papelaria de festas ou papelaria para empresas (cartões, tags, etiquetas…). */
+export type ProductLine = 'festas' | 'empresas'
+
+/** Opção de compra com preço próprio, ex.: "100 unidades" por R$ 59,90. */
+export interface PackageVariant {
+  id: string
+  label: string
+  priceCents: number
+}
+
 /**
  * O que o checkout pede ao cliente:
  * - none: nada (kit digital pronto);
  * - theme: só o tema e observações (ex.: tema individual, com os arquivos do tema escolhido);
- * - full: nome, idade, tema, cores e observações (personalizados e impressos).
+ * - full: nome, idade, tema, cores e observações (personalizados e impressos de festa);
+ * - business: nome da marca, textos do cartão, cores, logo e observações (papelaria para empresas).
  */
-export type CustomizationLevel = 'none' | 'theme' | 'full'
+export type CustomizationLevel = 'none' | 'theme' | 'full' | 'business'
 
 /** Item que compõe o pacote, ex.: { name: 'Caixa Milk – 14 cm x 6,5 cm', quantity: 5 }. */
 export interface PackageItem {
@@ -69,6 +80,9 @@ export interface Package {
   customizationLevel: CustomizationLevel
   /** Só impressos: medidas e peso da embalagem. Sem isso, o envio não é oferecido (só retirada). */
   shippingBox: ShippingBox | null
+  line: ProductLine
+  /** Opções de quantidade/preço. Vazio = preço único (priceCents). Com opções, priceCents é o menor preço. */
+  variants: PackageVariant[]
   /** Dias de acesso após a compra. `null` = vitalício. */
   accessDays: number | null
   /** Arquivos do pacote, na ordem de exibição. */
@@ -84,6 +98,10 @@ export interface Customization {
   theme: string
   colors: string
   notes: string
+  /** Papelaria para empresas: nome da marca/empresa. */
+  businessName: string
+  /** Papelaria para empresas: o que vai escrito no cartão (Instagram, WhatsApp, frases…). */
+  cardText: string
 }
 
 /** download: kit digital; pickup: retirada no local; shipping: envio pelos Correios/transportadoras (Melhor Envio). */
@@ -134,6 +152,8 @@ export interface Order {
   shipping: ShippingChoice | null
   /** Código de rastreio informado pelo admin ao despachar. */
   trackingCode: string | null
+  /** Opção escolhida (quando o pacote tem opções de quantidade). */
+  variant: PackageVariant | null
   productionStatus: ProductionStatus | null
 }
 

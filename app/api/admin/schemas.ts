@@ -12,7 +12,12 @@ export const packageInputSchema = z.object({
   fileIds: z.array(z.string()).max(500),
   kind: z.enum(['digital', 'custom_digital', 'printed']).default('digital'),
   items: z.array(z.object({ name: z.string().max(200), quantity: z.number().int() })).max(50).default([]),
-  customizationLevel: z.enum(['none', 'theme', 'full']).default('none'),
+  customizationLevel: z.enum(['none', 'theme', 'full', 'business']).default('none'),
+  line: z.enum(['festas', 'empresas']).default('festas'),
+  variants: z
+    .array(z.object({ id: z.string().max(40), label: z.string().max(80), priceCents: z.number().int() }))
+    .max(20)
+    .default([]),
   shippingBox: z
     .object({ weightGrams: z.number(), heightCm: z.number(), widthCm: z.number(), lengthCm: z.number() })
     .nullable()

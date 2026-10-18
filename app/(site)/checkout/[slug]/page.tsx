@@ -5,11 +5,12 @@
 // algum campo, voltamos para a etapa desse campo.
 
 import { PackageCover, packageSummary } from '@/components/catalog/PackageCard'
+import { LogoUpload, type UploadedFile } from '@/components/checkout/LogoUpload'
 import { daysLabel, emptyDelivery, selectedOption, ShippingSection, type DeliveryState } from '@/components/checkout/ShippingSection'
 import { Button, ButtonLink, Card, EmptyState, ErrorState, Field, Input, KindBadge, PageLoader, Textarea } from '@/components/ui'
 import { addressLines } from '@/lib/address'
 import { cn } from '@/lib/cn'
-import { needsCustomization, needsName, type PublicPackage } from '@/lib/contracts'
+import { isBusiness, needsCustomization, needsName, priceFor, type PublicPackage } from '@/lib/contracts'
 import { formatBRL, formatPhoneBR } from '@/lib/format'
 import { useSession } from '@/lib/hooks/useSession'
 import { DELIVERY_LABEL } from '@/lib/labels'
@@ -21,9 +22,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 
-type StepId = 'dados' | 'personalizacao' | 'entrega' | 'revisao'
+type StepId = 'opcao' | 'dados' | 'personalizacao' | 'entrega' | 'revisao'
 
 const STEP_LABEL: Record<StepId, string> = {
+  opcao: 'Quantidade',
   dados: 'Seus dados',
   personalizacao: 'Personalização',
   entrega: 'Entrega',
@@ -32,6 +34,10 @@ const STEP_LABEL: Record<StepId, string> = {
 
 /** Em qual etapa cada campo (dos erros do servidor) fica. */
 const FIELD_STEP: Record<string, StepId> = {
+  variantId: 'opcao',
+  businessName: 'personalizacao',
+  cardText: 'personalizacao',
+  uploads: 'personalizacao',
   name: 'dados',
   email: 'dados',
   phone: 'dados',
@@ -52,6 +58,7 @@ const FIELD_STEP: Record<string, StepId> = {
 }
 
 const stepsFor = (pkg: PublicPackage): StepId[] => [
+  ...(pkg.variants.length ? (['opcao'] as const) : []),
   'dados',
   ...(needsCustomization(pkg) ? (['personalizacao'] as const) : []),
   ...(pkg.kind === 'printed' ? (['entrega'] as const) : []),
@@ -61,16 +68,21 @@ const stepsFor = (pkg: PublicPackage): StepId[] => [
 type Form = { name: string; email: string; phone: string }
 
 /** Mesmas regras do servidor, para avisar antes de avançar. */
-function validateStep(step: StepId, pkg: PublicPackage, form: Form, custom: Customization, delivery: DeliveryState) {
+function validateStep(step: StepId, pkg: PublicPackage, form: Form, custom: Customization, delivery: DeliveryState, variantId: string | null) {
   const e: Record<string, string> = {}
+  if (step === 'opcao' && !pkg.variants.some((v) => v.id === variantId)) e.variantId = 'Escolha a quantidade.'
   if (step === 'dados') {
     if (form.name.trim().length < 3) e.name = 'Informe seu nome completo.'
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) e.email = 'Informe um email válido.'
     if (form.phone.replace(/\D/g, '').length < 10) e.phone = 'Informe um WhatsApp com DDD.'
   }
   if (step === 'personalizacao') {
-    if (needsName(pkg) && !custom.childName.trim()) e.childName = 'Informe o nome que vai na arte.'
-    if (!custom.theme.trim()) e.theme = 'Informe o tema da festa.'
+    if (isBusiness(pkg)) {
+      if (!custom.businessName.trim()) e.businessName = 'Informe o nome da empresa ou marca.'
+    } else {
+      if (needsName(pkg) && !custom.childName.trim()) e.childName = 'Informe o nome que vai na arte.'
+      if (!custom.theme.trim()) e.theme = 'Informe o tema da festa.'
+    }
   }
   if (step === 'entrega') {
     if (!delivery.method) e.deliveryMethod = 'Escolha retirada ou envio.'
@@ -113,7 +125,14 @@ function Stepper({ steps, current, onGo }: { steps: StepId[]; current: number; o
               >
                 {done ? <Check size={16} /> : i + 1}
               </span>
-              <span className={cn('hidden text-sm sm:block', active ? 'font-semibold text-brand-ink' : done ? 'text-gray-700' : 'text-gray-400')}>
+              <span
+                className={cn(
+                  'hidden whitespace-nowrap text-sm',
+                  // Com muitas etapas, só a atual mostra o nome (as outras, só o número) até telas largas.
+                  active || steps.length <= 4 ? 'sm:block' : 'xl:block',
+                  active ? 'font-semibold text-brand-ink' : done ? 'text-gray-700' : 'text-gray-400',
+                )}
+              >
                 {STEP_LABEL[s]}
               </span>
             </button>
@@ -148,13 +167,23 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
   })
 
   const [form, setForm] = useState<Form>({ name: '', email: '', phone: '' })
-  const [custom, setCustom] = useState<Customization>({ childName: '', age: '', theme: '', colors: '', notes: '' })
+  const [custom, setCustom] = useState<Customization>({ childName: '', age: '', theme: '', colors: '', notes: '', businessName: '', cardText: '' })
+  const [variantId, setVariantId] = useState<string | null>(null)
+  const [uploads, setUploads] = useState<UploadedFile[]>([])
   const [delivery, setDelivery] = useState<DeliveryState>(emptyDelivery)
   const [accepted, setAccepted] = useState(false)
   const [touchedTerms, setTouchedTerms] = useState(false)
   const [stepIndex, setStepIndex] = useState(0)
   const [localErrors, setLocalErrors] = useState<Record<string, string>>({})
   const topRef = useRef<HTMLDivElement>(null)
+
+  // Opção escolhida na página do kit (?opcao=…); sem ela, a primeira.
+  useEffect(() => {
+    const pkg = pkgQuery.data
+    if (!pkg?.variants.length || variantId) return
+    const fromUrl = new URLSearchParams(window.location.search).get('opcao')
+    setVariantId(pkg.variants.find((v) => v.id === fromUrl)?.id ?? pkg.variants[0].id)
+  }, [pkgQuery.data, variantId])
 
   // Cliente logado: preenche com os dados da conta.
   useEffect(() => {
@@ -182,6 +211,8 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
         packageSlug: params.slug,
         ...form,
         ...(needsCustomization(pkg) && { customization: custom }),
+        ...(pkg.variants.length && variantId && { variantId }),
+        ...(uploads.length && { uploads: uploads.map(({ id, token }) => ({ id, token })) }),
         ...(pkg.kind === 'printed' && {
           deliveryMethod: delivery.method ?? undefined,
           ...(delivery.method === 'shipping' && { shippingAddress: delivery.address, shippingServiceId: delivery.serviceId ?? undefined }),
@@ -211,7 +242,7 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
       if (accepted) order.mutate()
       return
     }
-    const errors = validateStep(step, pkg, form, custom, delivery)
+    const errors = validateStep(step, pkg, form, custom, delivery, variantId)
     setLocalErrors(errors)
     if (!Object.keys(errors).length) goTo(stepIndex + 1)
   }
@@ -239,7 +270,8 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
   }
 
   const pkg = pkgQuery.data
-  const total = pkg.priceCents + (shippingChoice?.priceCents ?? 0)
+  const { priceCents: itemPrice, variant } = priceFor(pkg, variantId)
+  const total = itemPrice + (shippingChoice?.priceCents ?? 0)
   const editStep = (s: StepId) => () => goTo(steps.indexOf(s))
 
   return (
@@ -259,7 +291,9 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
         <PackageCover src={pkg.coverUrl} alt="" className="h-12 w-12 shrink-0 rounded-xl" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-gray-900">{pkg.title}</p>
-          <p className="text-xs text-gray-500">{shippingChoice ? `Inclui frete de ${formatBRL(shippingChoice.priceCents)}` : packageSummary(pkg)}</p>
+          <p className="text-xs text-gray-500">
+            {shippingChoice ? `Inclui frete de ${formatBRL(shippingChoice.priceCents)}` : variant ? variant.label : packageSummary(pkg)}
+          </p>
         </div>
         <p className="font-display text-lg font-bold tabular-nums text-brand-rose">{formatBRL(total)}</p>
       </div>
@@ -270,6 +304,26 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
 
           <form onSubmit={next} className="mt-6 space-y-4" noValidate>
             <h1 className="text-xl font-bold text-brand-ink sm:text-2xl">{step === 'revisao' ? 'Revise e pague' : STEP_LABEL[step]}</h1>
+
+            {step === 'opcao' && (
+              <fieldset className="space-y-2">
+                <legend className="sr-only">Quantidade</legend>
+                {pkg.variants.map((v) => (
+                  <label
+                    key={v.id}
+                    className={cn(
+                      'flex cursor-pointer items-center gap-3 rounded-2xl border-2 p-4 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-grape',
+                      variantId === v.id ? 'border-brand-rose bg-brand-blush' : 'border-gray-200 hover:border-brand-pink',
+                    )}
+                  >
+                    <input type="radio" name="variant" checked={variantId === v.id} onChange={() => setVariantId(v.id)} className="sr-only" />
+                    <span className="flex-1 font-semibold text-gray-900">{v.label}</span>
+                    <span className="font-display text-lg font-bold tabular-nums text-brand-rose">{formatBRL(v.priceCents)}</span>
+                  </label>
+                ))}
+                {fieldErrors.variantId && <p className="text-sm text-red-600">{fieldErrors.variantId}</p>}
+              </fieldset>
+            )}
 
             {step === 'dados' && (
               <>
@@ -293,7 +347,28 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
               </>
             )}
 
-            {step === 'personalizacao' && (
+            {step === 'personalizacao' && isBusiness(pkg) && (
+              <>
+                <p className="text-sm text-gray-500">Conte como devem ficar os cartões da sua marca. Montamos a arte e enviamos para você aprovar. 💕</p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Nome da empresa ou marca" error={fieldErrors.businessName}>
+                    <Input value={custom.businessName} onChange={setC('businessName')} placeholder="Meu Pequeno Universo" maxLength={120} autoFocus />
+                  </Field>
+                  <Field label="Cores (opcional)" error={fieldErrors.colors}>
+                    <Input value={custom.colors} onChange={setC('colors')} placeholder="Rosa, dourado…" maxLength={200} />
+                  </Field>
+                </div>
+                <Field label="Textos do cartão (opcional)" hint="Instagram, WhatsApp, frases, informações de garantia…" error={fieldErrors.cardText}>
+                  <Textarea value={custom.cardText} onChange={setC('cardText')} rows={2} maxLength={2000} />
+                </Field>
+                <LogoUpload value={uploads} onChange={setUploads} error={fieldErrors.uploads} />
+                <Field label="Observações (opcional)" error={fieldErrors.notes}>
+                  <Input value={custom.notes} onChange={setC('notes')} placeholder="Frente e verso, acabamento, prazo…" maxLength={2000} />
+                </Field>
+              </>
+            )}
+
+            {step === 'personalizacao' && !isBusiness(pkg) && (
               <>
                 <p className="text-sm text-gray-500">
                   Conte como você quer o seu kit. Se quiser completar ou ajustar algum detalhe, você tem até 48 horas pelo WhatsApp. 💕
@@ -323,19 +398,34 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
             )}
 
             {step === 'entrega' && (
-              <ShippingSection packageSlug={pkg.slug} shippable={pkg.shippable} value={delivery} onChange={setDelivery} errors={fieldErrors} />
+              <ShippingSection packageSlug={pkg.slug} variantId={variantId} shippable={pkg.shippable} value={delivery} onChange={setDelivery} errors={fieldErrors} />
             )}
 
             {step === 'revisao' && (
               <>
                 <div className="grid gap-3">
+                  {variant && (
+                    <ReviewBlock title="Quantidade" onEdit={editStep('opcao')}>
+                      <p className="font-medium">
+                        {variant.label} · {formatBRL(variant.priceCents)}
+                      </p>
+                    </ReviewBlock>
+                  )}
                   <ReviewBlock title="Seus dados" onEdit={editStep('dados')}>
                     <p className="font-medium">{form.name}</p>
                     <p className="text-gray-600">
                       {form.email} · {form.phone}
                     </p>
                   </ReviewBlock>
-                  {needsCustomization(pkg) && (
+                  {isBusiness(pkg) && (
+                    <ReviewBlock title="Personalização" onEdit={editStep('personalizacao')}>
+                      <p className="font-medium">{custom.businessName}</p>
+                      {custom.colors && <p className="text-gray-600">Cores: {custom.colors}</p>}
+                      {custom.cardText && <p className="truncate text-gray-600">{custom.cardText}</p>}
+                      <p className="text-gray-500">{uploads.length ? `${uploads.length} arquivo(s) enviado(s)` : 'Sem logo (você pode mandar pelo WhatsApp)'}</p>
+                    </ReviewBlock>
+                  )}
+                  {needsCustomization(pkg) && !isBusiness(pkg) && (
                     <ReviewBlock title="Personalização" onEdit={editStep('personalizacao')}>
                       {needsName(pkg) && (
                         <p>
@@ -434,13 +524,13 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
               <KindBadge kind={pkg.kind} />
             </div>
             <p className="mt-1 font-semibold text-gray-900">{pkg.title}</p>
-            <p className="text-sm text-gray-600">{packageSummary(pkg)}</p>
+            <p className="text-sm text-gray-600">{variant ? variant.label : packageSummary(pkg)}</p>
             <dl className="mt-4 space-y-1.5 border-t border-black/5 pt-4 text-sm">
               {pkg.kind === 'printed' && (
                 <>
                   <div className="flex justify-between gap-3">
-                    <dt className="text-gray-600">Kit</dt>
-                    <dd className="tabular-nums">{formatBRL(pkg.priceCents)}</dd>
+                    <dt className="text-gray-600">{variant ? variant.label : 'Kit'}</dt>
+                    <dd className="tabular-nums">{formatBRL(itemPrice)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt className="text-gray-600">{shippingChoice ? `Frete (${daysLabel(shippingChoice)})` : 'Frete'}</dt>

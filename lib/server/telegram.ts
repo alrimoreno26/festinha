@@ -9,7 +9,7 @@
 
 import { addressLines } from '@/lib/address'
 import { DELIVERY_LABEL, KIND_LABEL } from '@/lib/labels'
-import type { Customization, DeliveryMethod, PackageKind, PaymentMethod, ShippingAddress, ShippingChoice } from '@/lib/types'
+import type { Customization, DeliveryMethod, PackageKind, PackageVariant, PaymentMethod, ShippingAddress, ShippingChoice } from '@/lib/types'
 import { and, eq, isNull, lt, lte, sql } from 'drizzle-orm'
 import * as t from './db/schema'
 import type { Db } from './db/types'
@@ -76,12 +76,17 @@ export interface OrderNotice {
   deliveryMethod: DeliveryMethod
   shippingAddress: ShippingAddress | null
   shipping: ShippingChoice | null
+  variant: PackageVariant | null
+  /** Quantos arquivos o cliente enviou (ex.: logo). */
+  customerFiles: number
   /** Primeira compra deste email. */
   newCustomer: boolean
   appUrl: string
 }
 
 const CUSTOM_LABELS: [keyof Customization, string][] = [
+  ['businessName', 'Empresa'],
+  ['cardText', 'Textos'],
   ['childName', 'Nome'],
   ['age', 'Idade'],
   ['theme', 'Tema'],
@@ -96,7 +101,7 @@ export function orderPaidMessage(o: OrderNotice) {
   const lines = [
     `🎉 <b>Novo pedido pago!</b>`,
     '',
-    `📦 <b>${esc(o.packageTitle)}</b>`,
+    `📦 <b>${esc(o.packageTitle)}</b>${o.variant ? ` · ${esc(o.variant.label)}` : ''}`,
     `🏷️ ${KIND_LABEL[o.packageKind]}`,
     `💰 <b>${brl(o.amountCents)}</b> · ${o.method === 'pix' ? 'Pix' : 'Cartão'}${o.shipping ? ` <i>(frete ${brl(o.shipping.priceCents)} incluso)</i>` : ''}`,
     '',
@@ -110,6 +115,7 @@ export function orderPaidMessage(o: OrderNotice) {
     lines.push('', `🎨 <b>Personalização</b>`)
     for (const [k, label] of custom) lines.push(`• ${label}: ${esc(o.customization![k])}`)
   }
+  if (o.customerFiles) lines.push(`📎 ${o.customerFiles === 1 ? 'Logo/arquivo enviado' : `${o.customerFiles} arquivos enviados`} (baixe no backoffice)`)
 
   if (o.packageKind === 'printed') {
     if (o.deliveryMethod === 'shipping' && o.shipping) {

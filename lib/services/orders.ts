@@ -34,6 +34,9 @@ export const ordersService = {
   updateProduction: (id: string, status: ProductionStatus, fileIds?: string[], trackingCode?: string) =>
     api<AdminOrderDetail>('PATCH', `/api/admin/orders/${id}/production`, { status, fileIds, trackingCode }),
 
+  /** URL assinada para baixar um arquivo (ex.: logo enviado pelo cliente). */
+  downloadFile: (fileId: string) => api<{ url: string; filename: string }>('POST', `/api/admin/files/${fileId}/download`),
+
   /** Tira um arquivo do pedido. */
   detachFile: (id: string, fileId: string) => api<AdminOrderDetail>('DELETE', `/api/admin/orders/${id}/files/${fileId}`),
 

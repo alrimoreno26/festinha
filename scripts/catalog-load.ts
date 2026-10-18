@@ -14,12 +14,16 @@ import * as t from '../lib/server/db/schema'
 import * as packages from '../lib/server/domain/packages'
 import { toUser } from '../lib/server/mappers'
 
-const pkg = (p: Omit<PackageInput, 'coverUrl' | 'accessDays' | 'fileIds' | 'customizationLevel' | 'shippingBox'> & Partial<PackageInput>): PackageInput => ({
+const pkg = (
+  p: Omit<PackageInput, 'coverUrl' | 'accessDays' | 'fileIds' | 'customizationLevel' | 'shippingBox' | 'line' | 'variants'> & Partial<PackageInput>,
+): PackageInput => ({
   coverUrl: null,
   accessDays: null,
   fileIds: [],
   customizationLevel: 'full',
   shippingBox: null,
+  line: 'festas',
+  variants: [],
   ...p,
 })
 
@@ -30,7 +34,16 @@ const BOX = {
   plaquinhas: { weightGrams: 300, heightCm: 5, widthCm: 20, lengthCm: 25 },
   livrinhos: { weightGrams: 500, heightCm: 5, widthCm: 18, lengthCm: 25 },
   tags: { weightGrams: 200, heightCm: 4, widthCm: 15, lengthCm: 20 },
+  cartoes: { weightGrams: 250, heightCm: 4, widthCm: 11, lengthCm: 16 },
 }
+
+// Opções de quantidade dos cartões para empresas. PREÇOS DE EXEMPLO (R$ 1,00): defina os reais no backoffice
+// antes de mostrar no catálogo (os cartões entram ocultos).
+const CARD_OPTIONS = [
+  { id: 'opt_50', label: '50 unidades', priceCents: 100 },
+  { id: 'opt_100', label: '100 unidades', priceCents: 100 },
+  { id: 'opt_200', label: '200 unidades', priceCents: 100 },
+]
 
 const CATALOG: PackageInput[] = [
   // ---- Impressos ----
@@ -85,6 +98,37 @@ const CATALOG: PackageInput[] = [
     description:
       'Dê um toque especial às suas lembrancinhas com tags personalizadas com o tema, nome e cores da sua festa! Perfeitas para decorar embalagens, sacolinhas e presentinhos.',
     items: [{ name: 'Tag de papel personalizada', quantity: 40 }],
+  }),
+  // ---- Para empresas (ocultos até definir os preços) ----
+  pkg({
+    title: 'Cartão de garantia',
+    slug: 'cartao-de-garantia',
+    kind: 'printed',
+    line: 'empresas',
+    customizationLevel: 'business',
+    priceCents: 100,
+    variants: CARD_OPTIONS,
+    active: false,
+    coverUrl: '/galeria/cartao-garantia.webp',
+    shippingBox: BOX.cartoes,
+    description:
+      'Cartão de garantia com a identidade da sua marca: logo e frase na frente; no verso, campos para produto, material, data da compra e prazo, com a informação da garantia legal (CDC). Impresso frente e verso, pronto para acompanhar cada venda.',
+    items: [{ name: 'Cartão de garantia frente e verso (aprox. 5 x 8 cm)', quantity: 1 }],
+  }),
+  pkg({
+    title: 'Cartão de cuidados com joias',
+    slug: 'cartao-de-cuidados-com-joias',
+    kind: 'printed',
+    line: 'empresas',
+    customizationLevel: 'business',
+    priceCents: 100,
+    variants: CARD_OPTIONS,
+    active: false,
+    coverUrl: '/galeria/cartao-cuidados-joias.webp',
+    shippingBox: BOX.cartoes,
+    description:
+      'Cartão com dicas para o seu cliente conservar as peças por mais tempo (água, produtos químicos, manuseio, limpeza e armazenamento), com o logo e as cores da sua marca. Impresso em papel fotográfico.',
+    items: [{ name: 'Cartão de cuidados (aprox. 5 x 7,5 cm)', quantity: 1 }],
   }),
   // ---- Digitais ----
   pkg({
@@ -147,7 +191,8 @@ async function main() {
       continue
     }
     await packages.create(db, actor, input)
-    console.log(`+ ${input.title}${input.active ? '' : ' (oculto: escolha os arquivos no backoffice)'}`)
+    const hint = input.kind === 'digital' ? 'escolha os arquivos' : 'defina os preços'
+    console.log(`+ ${input.title}${input.active ? '' : ` (oculto: ${hint} no backoffice)`}`)
   }
 }
 

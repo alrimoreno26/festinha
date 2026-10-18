@@ -20,6 +20,8 @@ const input = (over: Partial<PackageInput> = {}): PackageInput => ({
   items: [],
   customizationLevel: 'none',
   shippingBox: null,
+  line: 'festas',
+  variants: [],
   ...over,
 })
 

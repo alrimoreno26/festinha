@@ -11,6 +11,7 @@ import type { Db } from '../db/types'
 import { requireAdmin, type Actor } from '../guards'
 import { toEntitlement, toFile, toOrder, toPackage, toUser } from '../mappers'
 import { getPaymentGateway, type PaymentGateway } from '../payments'
+import { getStorage, type Storage } from '../storage'
 import { approveOrder, reverseOrder, sendEmail } from './fulfillment'
 
 const DAY = 24 * 60 * 60 * 1000
@@ -27,23 +28,24 @@ export async function list(db: Db, actor: Actor, filters: OrderFilters = {}): Pr
     where.push(or(ilike(t.orders.id, pattern), ilike(t.orders.name, pattern), ilike(t.orders.email, pattern))!)
   }
   const rows = await db
-    .select({ order: t.orders, packageTitle: t.packages.title, packageKind: t.packages.kind })
+    .select({ order: t.orders, packageTitle: t.packages.title, packageKind: t.packages.kind, packageLine: t.packages.line })
     .from(t.orders)
     .leftJoin(t.packages, eq(t.orders.packageId, t.packages.id))
     .where(where.length ? and(...where) : undefined)
     .orderBy(desc(t.orders.createdAt))
-  return rows.map((r) => ({ ...toOrder(r.order), packageTitle: r.packageTitle ?? '—', packageKind: r.packageKind ?? 'digital' }))
+  return rows.map((r) => ({ ...toOrder(r.order), packageTitle: r.packageTitle ?? '—', packageKind: r.packageKind ?? 'digital', packageLine: r.packageLine ?? 'festas' }))
 }
 
 export async function get(db: Db, actor: Actor, id: string): Promise<AdminOrderDetail> {
   requireAdmin(actor)
   const [order] = await db.select().from(t.orders).where(eq(t.orders.id, id))
   if (!order) throw new ServiceError('NOT_FOUND', 'Pedido não encontrado.')
-  const [[pkg], user, [ent], files] = await Promise.all([
+  const [[pkg], user, [ent], files, customerFiles] = await Promise.all([
     db.select().from(t.packages).where(eq(t.packages.id, order.packageId)),
     order.userId ? db.select().from(t.users).where(eq(t.users.id, order.userId)) : Promise.resolve([]),
     db.select().from(t.entitlements).where(eq(t.entitlements.orderId, id)),
     orderFilesOf(db, id),
+    orderFilesOf(db, id, 'customer'),
   ])
   const entitlement = ent ? toEntitlement(ent) : null
   return {
@@ -54,16 +56,18 @@ export async function get(db: Db, actor: Actor, id: string): Promise<AdminOrderD
     customer: user[0] ? toUser(user[0]) : null,
     entitlement: entitlement ? { ...entitlement, status: entitlementStatus(entitlement) } : null,
     files: files.map(toFile),
+    customerFiles: customerFiles.map(toFile),
   }
 }
 
-export async function orderFilesOf(db: Db, orderId: string) {
+/** Arquivos do pedido: os finais (delivery, enviados pela loja) ou os do cliente (customer, ex.: logo). */
+export async function orderFilesOf(db: Db, orderId: string, role: 'delivery' | 'customer' = 'delivery') {
   return (
     await db
       .select({ file: t.files })
       .from(t.orderFiles)
       .innerJoin(t.files, eq(t.orderFiles.fileId, t.files.id))
-      .where(eq(t.orderFiles.orderId, orderId))
+      .where(and(eq(t.orderFiles.orderId, orderId), eq(t.orderFiles.role, role)))
       .orderBy(asc(t.orderFiles.position))
   ).map((r) => r.file)
 }
@@ -105,7 +109,7 @@ export async function updateProduction(db: Db, actor: Actor, id: string, input: 
       const [{ next }] = await tx
         .select({ next: sql<number>`coalesce(max(${t.orderFiles.position}) + 1, 0)::int` })
         .from(t.orderFiles)
-        .where(eq(t.orderFiles.orderId, id))
+        .where(and(eq(t.orderFiles.orderId, id), eq(t.orderFiles.role, 'delivery')))
       await tx
         .insert(t.orderFiles)
         .values([...new Set(fileIds)].map((fileId, i) => ({ orderId: id, fileId, position: next + i })))
@@ -113,7 +117,10 @@ export async function updateProduction(db: Db, actor: Actor, id: string, input: 
     }
 
     if (pkg.kind === 'custom_digital' && status === 'delivered') {
-      const [{ count }] = await tx.select({ count: sql<number>`count(*)::int` }).from(t.orderFiles).where(eq(t.orderFiles.orderId, id))
+      const [{ count }] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(t.orderFiles)
+        .where(and(eq(t.orderFiles.orderId, id), eq(t.orderFiles.role, 'delivery')))
       if (!count) throw new ServiceError('VALIDATION', 'Envie o arquivo final antes de marcar como entregue.')
     }
 
@@ -146,10 +153,19 @@ export async function updateProduction(db: Db, actor: Actor, id: string, input: 
   return get(db, actor, id)
 }
 
+/** Link de download (admin) de qualquer arquivo registrado, ex.: o logo enviado pelo cliente. */
+export async function adminDownloadLink(db: Db, actor: Actor, fileId: string, storage: Storage = getStorage()) {
+  requireAdmin(actor)
+  const [file] = await db.select().from(t.files).where(eq(t.files.id, fileId))
+  if (!file) throw new ServiceError('NOT_FOUND', 'Arquivo não encontrado.')
+  const filename = storage.kind === 'demo' ? `${file.filename}.demo.txt` : file.filename
+  return { url: await storage.presignDownload(file.key, file.filename, file.mime), filename }
+}
+
 /** Tira um arquivo enviado por engano do pedido (o arquivo continua no explorador). */
 export async function detachFile(db: Db, actor: Actor, id: string, fileId: string) {
   requireAdmin(actor)
-  await db.delete(t.orderFiles).where(and(eq(t.orderFiles.orderId, id), eq(t.orderFiles.fileId, fileId)))
+  await db.delete(t.orderFiles).where(and(eq(t.orderFiles.orderId, id), eq(t.orderFiles.fileId, fileId), eq(t.orderFiles.role, 'delivery')))
   return get(db, actor, id)
 }
 

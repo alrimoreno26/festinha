@@ -12,6 +12,11 @@ const schema = z.object({
   deliveryMethod: z.enum(['download', 'pickup', 'shipping']).optional(),
   shippingAddress: z.record(z.string().max(200)).optional(),
   shippingServiceId: z.number().int().optional(),
+  variantId: z.string().max(40).optional(),
+  uploads: z
+    .array(z.object({ id: z.string().max(40), token: z.string().max(100) }))
+    .max(5)
+    .optional(),
 })
 
 /** Cria o pedido e, com Mercado Pago, a preferência de pagamento (devolve o link do checkout). */

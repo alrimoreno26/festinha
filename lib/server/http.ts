@@ -159,3 +159,8 @@ export function publicUrls(req: NextRequest) {
 }
 
 export { db }
+
+/** IP de quem chamou (na Vercel vem em x-forwarded-for). Só para limitar abusos; nunca é gravado em claro. */
+export function clientIp(req: NextRequest) {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || ''
+}

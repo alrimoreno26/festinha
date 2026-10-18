@@ -28,6 +28,8 @@ const base = (over: Partial<PackageInput>): PackageInput => ({
   ],
   customizationLevel: 'none',
   shippingBox: null,
+  line: 'festas',
+  variants: [],
   ...over,
 })
 

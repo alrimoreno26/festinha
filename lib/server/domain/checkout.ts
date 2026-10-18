@@ -3,9 +3,9 @@
 // a confirmação chega pelo webhook (e pela consulta na volta para o site).
 // Sem Mercado Pago: a página /simulador-mp faz o papel do MP.
 
-import { checkoutSchema, needsCustomization, needsName, zodDetails, type CheckoutInput, type PublicOrder } from '@/lib/contracts'
+import { checkoutSchema, isBusiness, needsCustomization, needsName, priceFor, zodDetails, type CheckoutInput, type PublicOrder } from '@/lib/contracts'
 import { ServiceError } from '@/lib/services/errors'
-import type { Customization, DeliveryMethod, PaymentMethod, ShippingAddress, ShippingChoice } from '@/lib/types'
+import type { Customization, DeliveryMethod, PackageVariant, PaymentMethod, ShippingAddress, ShippingChoice } from '@/lib/types'
 import { and, eq, isNotNull, lte } from 'drizzle-orm'
 import * as t from '../db/schema'
 import type { Db } from '../db/types'
@@ -14,6 +14,7 @@ import { getPaymentGateway, type PaymentGateway } from '../payments'
 import { approveOrder } from './fulfillment'
 import { applyPayment } from './payments'
 import { quotePackage } from './shipping'
+import { attachUploads } from './uploads'
 import { getShippingQuoter, onlyDigits, type ShippingQuoter } from '../shipping'
 
 const PIX_TTL_MS = 30 * 60 * 1000
@@ -74,6 +75,7 @@ interface OrderData {
   deliveryMethod: DeliveryMethod
   shippingAddress: ShippingAddress | null
   shipping: ShippingChoice | null
+  variant: PackageVariant | null
 }
 
 type PackageRow = typeof t.packages.$inferSelect
@@ -85,15 +87,24 @@ type PackageRow = typeof t.packages.$inferSelect
 async function orderExtras(
   db: Db,
   pkg: PackageRow,
-  input: Pick<CheckoutInput, 'customization' | 'deliveryMethod' | 'shippingAddress' | 'shippingServiceId'>,
+  input: Pick<CheckoutInput, 'customization' | 'deliveryMethod' | 'shippingAddress' | 'shippingServiceId' | 'variantId'>,
   quoter: ShippingQuoter,
 ) {
   const errors: Record<string, string> = {}
+
+  // Opção de quantidade/preço (quando o pacote tem opções).
+  const { priceCents, variant } = priceFor(pkg, input.variantId)
+  if (pkg.variants.length && !variant) errors.variantId = 'Escolha a quantidade.'
+
   let customization: Customization | null = null
   if (needsCustomization(pkg)) {
-    const c = { childName: '', age: '', theme: '', colors: '', notes: '', ...input.customization }
-    if (needsName(pkg) && !c.childName.trim()) errors.childName = 'Informe o nome que vai na arte.'
-    if (!c.theme.trim()) errors.theme = 'Informe o tema da festa.'
+    const c = { childName: '', age: '', theme: '', colors: '', notes: '', businessName: '', cardText: '', ...input.customization }
+    if (isBusiness(pkg)) {
+      if (!c.businessName.trim()) errors.businessName = 'Informe o nome da empresa ou marca.'
+    } else {
+      if (needsName(pkg) && !c.childName.trim()) errors.childName = 'Informe o nome que vai na arte.'
+      if (!c.theme.trim()) errors.theme = 'Informe o tema da festa.'
+    }
     customization = c
   }
 
@@ -125,7 +136,7 @@ async function orderExtras(
       // O frete é sempre recalculado aqui: o valor do navegador nunca é usado.
       if (!errors.postalCode && input.shippingServiceId) {
         try {
-          const options = await quotePackage(db, pkg, shippingAddress.postalCode, quoter)
+          const options = await quotePackage(db, pkg, shippingAddress.postalCode, quoter, priceCents)
           shipping = options.find((o) => o.serviceId === input.shippingServiceId) ?? null
           if (!shipping) errors.shippingServiceId = 'Esta opção de envio não está mais disponível. Escolha outra.'
         } catch (err) {
@@ -136,7 +147,7 @@ async function orderExtras(
       }
     }
   }
-  return { errors, data: { customization, deliveryMethod, shippingAddress, shipping } }
+  return { errors, data: { customization, deliveryMethod, shippingAddress, shipping, variant } }
 }
 
 /** Cria o pedido pendente e, com Mercado Pago, a preferência de pagamento. */
@@ -146,17 +157,22 @@ async function openOrder(
   pkg: PackageRow,
   urls: CheckoutUrls | null,
   gateway: PaymentGateway,
+  uploads: { id: string; token: string }[] = [],
 ) {
   const id = newId('ord')
-  // O preço vem sempre do banco (e o frete, da cotação feita no servidor).
-  const amountCents = pkg.priceCents + (data.shipping?.priceCents ?? 0)
-  await db.insert(t.orders).values({ id, ...data, packageId: pkg.id, amountCents })
+  // O preço vem sempre do banco (da opção escolhida, se houver) e o frete, da cotação feita no servidor.
+  const amountCents = (data.variant?.priceCents ?? pkg.priceCents) + (data.shipping?.priceCents ?? 0)
+  // Pedido e arquivos do cliente juntos: se o logo não for aceito, o pedido não é criado.
+  await db.transaction(async (tx) => {
+    await tx.insert(t.orders).values({ id, ...data, packageId: pkg.id, amountCents })
+    await attachUploads(tx, id, uploads)
+  })
 
   if (gateway.kind === 'simulator' || !urls) return { orderId: id, checkoutUrl: `/simulador-mp/${id}` }
 
   const checkout = await gateway.createCheckout({
     orderId: id,
-    title: pkg.title,
+    title: data.variant ? `${pkg.title} – ${data.variant.label}` : pkg.title,
     packageId: pkg.id,
     amountCents,
     shipping: data.shipping ? { title: `Frete ${[data.shipping.company, data.shipping.service].filter(Boolean).join(' ')}`, cents: data.shipping.priceCents } : null,
@@ -189,7 +205,7 @@ export async function createOrder(
   if (!parsed.success || Object.keys(errors).length) throw new ServiceError('VALIDATION', 'Revise os campos destacados.', errors)
 
   const { name, email, phone } = parsed.data
-  return openOrder(db, { name, email, phone, ...extras.data }, pkg, urls, gateway)
+  return openOrder(db, { name, email, phone, ...extras.data }, pkg, urls, gateway, parsed.data.uploads ?? [])
 }
 
 /**
@@ -264,8 +280,9 @@ export async function retry(db: Db, orderId: string, urls: CheckoutUrls | null =
     customization: old.customization ?? null,
     deliveryMethod: old.deliveryMethod,
     shippingAddress: old.shippingAddress ?? null,
-    // Mantém o frete escolhido na primeira tentativa.
+    // Mantém o frete e a opção escolhidos na primeira tentativa (os arquivos enviados continuam no pedido antigo).
     shipping: old.shipping ?? null,
+    variant: old.variant ?? null,
   }
   return openOrder(db, data, pkg, urls, gateway)
 }

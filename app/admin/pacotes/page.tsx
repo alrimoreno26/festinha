@@ -1,7 +1,7 @@
 'use client'
 
 import { PackageCover } from '@/components/catalog/PackageCard'
-import { ButtonLink, Card, EmptyState, KindBadge, PageHeader, QueryState, Switch, Table, TBody, TD, TH, THead, TR, useToast } from '@/components/ui'
+import { Badge, ButtonLink, Card, EmptyState, KindBadge, PageHeader, QueryState, Switch, Table, TBody, TD, TH, THead, TR, useToast } from '@/components/ui'
 import { accessLabel, formatBRL, unitsLabel } from '@/lib/format'
 import { errorMessage, packagesService, qk } from '@/lib/services'
 import type { AdminPackageRow } from '@/lib/services/packages'
@@ -80,12 +80,17 @@ export default function PacotesAdminPage() {
                   </TD>
                   <TD className="text-right tabular-nums whitespace-nowrap">{formatBRL(p.priceCents)}</TD>
                   <TD>
-                    <KindBadge kind={p.kind} />
+                    <div className="flex flex-wrap gap-1">
+                      <KindBadge kind={p.kind} />
+                      {p.line === 'empresas' && <Badge tone="neutral">Empresas</Badge>}
+                    </div>
                   </TD>
                   <TD className="whitespace-nowrap">
                     {p.kind === 'digital'
                       ? `${p.fileIds.length} arquivos · ${accessLabel(p.accessDays).replace('Acesso ', '')}`
-                      : unitsLabel(p.items.reduce((sum, i) => sum + i.quantity, 0))}
+                      : p.variants.length
+                        ? `${p.variants.length} opções`
+                        : unitsLabel(p.items.reduce((sum, i) => sum + i.quantity, 0))}
                   </TD>
                   <TD className="text-right tabular-nums whitespace-nowrap">
                     {p.salesCount}

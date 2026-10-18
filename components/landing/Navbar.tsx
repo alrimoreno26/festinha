@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react'
 const links = [
   { label: 'Início', href: '/#hero' },
   { label: 'Kits', href: '/pacotes' },
+  { label: 'Para empresas', href: '/pacotes?linha=empresas' },
   { label: 'Como funciona', href: '/#como-funciona' },
   { label: 'Quem somos', href: '/#quem-somos' },
   { label: 'Contato', href: '/#contato' },
@@ -25,7 +26,7 @@ export default function Navbar() {
 
   const accountHref = user?.role === 'admin' ? '/admin' : '/conta'
   const accountLabel = user ? (user.role === 'admin' ? 'Backoffice' : 'Meus kits') : 'Área do cliente'
-  const isActive = (href: string) => href === '/pacotes' && pathname.startsWith('/pacotes')
+  const isActive = (href: string) => href.startsWith('/pacotes') && pathname.startsWith('/pacotes') && href === '/pacotes'
 
   return (
     <header className="sticky top-0 z-50 backdrop-blur bg-brand-cream/85 border-b border-brand-pink/30">

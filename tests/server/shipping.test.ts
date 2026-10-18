@@ -44,6 +44,8 @@ const printed = (over: Partial<PackageInput> = {}): PackageInput => ({
   items: [{ name: 'Plaquinha', quantity: 10 }],
   customizationLevel: 'full',
   shippingBox: { weightGrams: 300, heightCm: 5, widthCm: 20, lengthCm: 25 },
+  line: 'festas',
+  variants: [],
   ...over,
 })
 

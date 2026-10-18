@@ -8,18 +8,58 @@ import { addressLines } from '@/lib/address'
 import { formatBytes } from '@/lib/format'
 import { errorMessage, filesService, ordersService, qk } from '@/lib/services'
 import type { AdminOrderDetail } from '@/lib/services/orders'
-import type { Customization, ProductionStatus } from '@/lib/types'
+import type { Customization, FileItem, ProductionStatus } from '@/lib/types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Check, Copy, X } from 'lucide-react'
+import { Check, Copy, Download, X } from 'lucide-react'
+import { triggerDownload } from '@/lib/download'
 import { useState } from 'react'
 
 const FIELDS: { key: keyof Customization; label: string }[] = [
+  { key: 'businessName', label: 'Empresa/marca' },
+  { key: 'cardText', label: 'Textos do cartão' },
   { key: 'childName', label: 'Nome na arte' },
   { key: 'age', label: 'Idade' },
   { key: 'theme', label: 'Tema' },
   { key: 'colors', label: 'Cores' },
   { key: 'notes', label: 'Observações' },
 ]
+
+/** Arquivos que o cliente enviou no checkout (ex.: logo), para baixar. */
+export function CustomerFilesCard({ files }: { files: FileItem[] }) {
+  const toast = useToast()
+  const [busy, setBusy] = useState<string | null>(null)
+  const download = async (file: FileItem) => {
+    setBusy(file.id)
+    try {
+      const { url, filename } = await ordersService.downloadFile(file.id)
+      triggerDownload(url, filename)
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setBusy(null)
+    }
+  }
+  return (
+    <Card className="p-5">
+      <h2 className="font-semibold text-gray-900">Arquivos do cliente</h2>
+      <p className="text-sm text-gray-500">Logo e referências enviados no checkout.</p>
+      <ul className="mt-3 divide-y divide-black/5 rounded-2xl border border-black/5">
+        {files.map((f) => (
+          <li key={f.id} className="flex items-center gap-3 px-3 py-2">
+            <FileIcon mime={f.mime} className="h-8 w-8" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm text-gray-800">{f.filename}</p>
+              <p className="text-xs text-gray-400">{formatBytes(f.size)}</p>
+            </div>
+            <Button size="sm" variant="outline" loading={busy === f.id} onClick={() => download(f)}>
+              <Download size={14} /> Baixar
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  )
+}
 
 export function CustomizationCard({ customization }: { customization: Customization }) {
   const toast = useToast()

@@ -58,7 +58,15 @@ async function validate(db: Db, input: PackageInput, id?: string): Promise<Packa
       .where(id ? and(eq(t.packages.slug, slug), ne(t.packages.id, id)) : eq(t.packages.slug, slug))
     if (dup) errors.slug = 'Já existe um pacote com este slug.'
   }
-  if (!Number.isInteger(input.priceCents) || input.priceCents < 100) errors.priceCents = 'O preço mínimo é R$ 1,00.'
+  // Opções de quantidade/preço: cada uma com nome e preço; o preço "a partir de" passa a ser o menor deles.
+  const variants = input.variants
+    .map((v) => ({ id: v.id?.trim() || newId('opt'), label: v.label.trim(), priceCents: v.priceCents }))
+    .filter((v) => v.label)
+  if (variants.some((v) => !Number.isInteger(v.priceCents) || v.priceCents < 100)) errors.variants = 'Cada opção precisa de um preço de pelo menos R$ 1,00.'
+  else if (new Set(variants.map((v) => v.label.toLowerCase())).size !== variants.length) errors.variants = 'Há opções com o mesmo nome.'
+  const priceCents = variants.length ? Math.min(...variants.map((v) => v.priceCents)) : input.priceCents
+  if (!variants.length && (!Number.isInteger(priceCents) || priceCents < 100)) errors.priceCents = 'O preço mínimo é R$ 1,00.'
+  const line = input.line === 'empresas' ? 'empresas' : 'festas'
   const kind = input.kind
   if (!['digital', 'custom_digital', 'printed'].includes(kind)) errors.kind = 'Tipo de pacote inválido.'
   const digital = kind === 'digital'
@@ -86,7 +94,7 @@ async function validate(db: Db, input: PackageInput, id?: string): Promise<Packa
     if (found.length !== fileIds.length) errors.fileIds = 'Alguns arquivos não existem mais. Revise a lista.'
   }
   if (Object.keys(errors).length) throw new ServiceError('VALIDATION', 'Revise os campos destacados.', errors)
-  return { ...input, title, slug, description: input.description.trim(), fileIds, accessDays, items, customizationLevel: customizationFor(kind, input.customizationLevel), shippingBox }
+  return { ...input, title, slug, description: input.description.trim(), fileIds, accessDays, items, customizationLevel: customizationFor(kind, input.customizationLevel), shippingBox, variants, priceCents, line }
 }
 
 async function writeFiles(db: Db, packageId: string, fileIds: string[]) {

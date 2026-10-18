@@ -38,6 +38,8 @@ export function toPackage(p: Row<typeof t.packages>, fileIds: string[]): Package
     items: p.items,
     customizationLevel: p.customizationLevel,
     shippingBox: p.shippingBox ?? null,
+    line: p.line,
+    variants: p.variants ?? [],
     fileIds,
     createdAt: iso(p.createdAt),
     updatedAt: iso(p.updatedAt),
@@ -57,11 +59,13 @@ export function toOrder(o: Row<typeof t.orders>): Order {
     method: o.method,
     createdAt: iso(o.createdAt),
     paidAt: isoOrNull(o.paidAt),
-    customization: o.customization ?? null,
+    // Pedidos antigos não têm os campos de empresa.
+    customization: o.customization ? Object.assign({ businessName: '', cardText: '' }, o.customization) : null,
     deliveryMethod: o.deliveryMethod,
     shippingAddress: o.shippingAddress ?? null,
     shipping: o.shipping ?? null,
     trackingCode: o.trackingCode,
+    variant: o.variant ?? null,
     productionStatus: o.productionStatus,
   }
 }

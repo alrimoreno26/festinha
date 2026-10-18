@@ -5,6 +5,9 @@ import { ButtonLink, Card, EmptyState, ErrorState, FileIcon, fileKind, KindBadge
 import { accessLabel, formatBRL, formatBytes, unitsLabel } from '@/lib/format'
 import { packagesService, qk, ServiceError } from '@/lib/services'
 import { useQuery } from '@tanstack/react-query'
+import { cn } from '@/lib/cn'
+import { isBusiness } from '@/lib/contracts'
+import { useState } from 'react'
 import type { PackageKind } from '@/lib/types'
 import { BRAND, whatsappUrl } from '@/lib/brand'
 import { CalendarClock, ChevronLeft, CreditCard, Mail, MessageCircle, Palette, SearchX, Store, Truck, Zap, type LucideIcon } from 'lucide-react'
@@ -30,6 +33,14 @@ const FAQ: Record<PackageKind, { q: string; a: string }[]> = {
   ],
 }
 
+/** Papelaria para empresas (cartões de garantia, de cuidados, tags…): dúvidas próprias. */
+const BUSINESS_FAQ = [
+  { q: 'Como envio o meu logo?', a: 'No checkout você envia o logo (PNG, JPG, SVG ou PDF) e conta os textos e as cores. Se preferir, mande depois pelo WhatsApp.' },
+  { q: 'Vou ver a arte antes de imprimir?', a: 'Sim. Montamos a arte com a identidade da sua marca e enviamos para você aprovar antes da impressão. Alterações podem ser pedidas em até 48 horas após a aprovação.' },
+  { q: 'Como recebo os cartões?', a: 'Você pode retirar no local ou receber em casa pelos Correios ou transportadora, com frete calculado pelo CEP no checkout.' },
+  pixFaq,
+]
+
 const FEATURES: Record<PackageKind, (accessDays: number | null) => { icon: LucideIcon; text: string }[]> = {
   digital: (days) => [
     { icon: Zap, text: 'Liberação imediata após o pagamento' },
@@ -49,6 +60,7 @@ const FEATURES: Record<PackageKind, (accessDays: number | null) => { icon: Lucid
 }
 
 export default function PacotePage({ params }: { params: { slug: string } }) {
+  const [variantId, setVariantId] = useState<string | null>(null)
   const query = useQuery({
     queryKey: qk.publicPackage(params.slug),
     queryFn: () => packagesService.getPublicBySlug(params.slug),
@@ -101,7 +113,10 @@ export default function PacotePage({ params }: { params: { slug: string } }) {
   const pkg = query.data
   const totalSize = pkg.files.reduce((s, f) => s + f.size, 0)
   const units = pkg.items.reduce((s, i) => s + i.quantity, 0)
-  const faq = FAQ[pkg.kind]
+  const faq = isBusiness(pkg) ? BUSINESS_FAQ : FAQ[pkg.kind]
+  const option = pkg.variants.find((v) => v.id === variantId) ?? pkg.variants[0] ?? null
+  const price = option?.priceCents ?? pkg.priceCents
+  const buyHref = `/checkout/${pkg.slug}${option ? `?opcao=${option.id}` : ''}`
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-10 pb-28 md:pb-10">
@@ -117,8 +132,8 @@ export default function PacotePage({ params }: { params: { slug: string } }) {
           <p className="mt-3 text-gray-700 text-[17px] leading-relaxed">{pkg.description}</p>
 
           <div className="mt-6 flex items-end gap-4">
-            <p className="text-3xl font-bold text-gray-900 tabular-nums">{formatBRL(pkg.priceCents)}</p>
-            <p className="pb-1 text-sm text-gray-500">pagamento único</p>
+            <p className="text-3xl font-bold text-gray-900 tabular-nums">{formatBRL(price)}</p>
+            <p className="pb-1 text-sm text-gray-500">{option ? option.label : 'pagamento único'}</p>
           </div>
 
           <ul className="mt-4 grid gap-2 text-sm text-gray-700">
@@ -129,7 +144,31 @@ export default function PacotePage({ params }: { params: { slug: string } }) {
             ))}
           </ul>
 
-          <ButtonLink href={`/checkout/${pkg.slug}`} size="lg" className="mt-6 w-full sm:w-auto hidden md:inline-flex">
+          {pkg.variants.length > 0 && (
+            <div className="mt-5" role="radiogroup" aria-label="Quantidade">
+              <p className="mb-2 text-sm font-semibold text-gray-700">Quantidade</p>
+              <div className="flex flex-wrap gap-2">
+                {pkg.variants.map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={option?.id === v.id}
+                    onClick={() => setVariantId(v.id)}
+                    className={cn(
+                      'rounded-2xl border-2 px-4 py-2 text-left text-sm transition-colors',
+                      option?.id === v.id ? 'border-brand-rose bg-brand-blush' : 'border-gray-200 bg-white hover:border-brand-pink',
+                    )}
+                  >
+                    <span className="block font-semibold text-gray-900">{v.label}</span>
+                    <span className="block tabular-nums text-brand-rose">{formatBRL(v.priceCents)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <ButtonLink href={buyHref} size="lg" className="mt-6 w-full sm:w-auto hidden md:inline-flex">
             Comprar agora
           </ButtonLink>
 
@@ -206,9 +245,9 @@ export default function PacotePage({ params }: { params: { slug: string } }) {
       <div className="md:hidden fixed inset-x-0 bottom-0 z-40 border-t border-black/5 bg-white/95 backdrop-blur px-4 py-3 flex items-center gap-4">
         <div>
           <p className="text-xs text-gray-500">{pkg.title}</p>
-          <p className="text-lg font-bold tabular-nums">{formatBRL(pkg.priceCents)}</p>
+          <p className="text-lg font-bold tabular-nums">{formatBRL(price)}</p>
         </div>
-        <ButtonLink href={`/checkout/${pkg.slug}`} className="flex-1">
+        <ButtonLink href={buyHref} className="flex-1">
           Comprar agora
         </ButtonLink>
       </div>

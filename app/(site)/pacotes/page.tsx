@@ -3,7 +3,7 @@
 import { PackageCard, PackageCardSkeleton } from '@/components/catalog/PackageCard'
 import { Card, EmptyState, PACKAGE_KIND, QueryState } from '@/components/ui'
 import { cn } from '@/lib/cn'
-import type { PackageKind } from '@/lib/types'
+import type { PackageKind, ProductLine } from '@/lib/types'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import { packagesService, qk } from '@/lib/services'
@@ -40,23 +40,71 @@ function Pacotes() {
   const params = useSearchParams()
   const raw = params.get('tipo')
   const kind = raw && raw in PACKAGE_KIND ? (raw as PackageKind) : null
+  const rawLine = params.get('linha')
+  const line: ProductLine | null = rawLine === 'festas' || rawLine === 'empresas' ? rawLine : null
   const query = useQuery({ queryKey: qk.publicPackages, queryFn: packagesService.listPublic })
-  // Abas só para os tipos que existem no catálogo (sem abas vazias).
-  const kinds = new Set(query.data?.map((p) => p.kind))
+  const lines = new Set(query.data?.map((p) => p.line))
+  const inLine = (query.data ?? []).filter((p) => !line || p.line === line)
+  // Abas só para os tipos que existem na linha escolhida (sem abas vazias).
+  const kinds = new Set(inLine.map((p) => p.kind))
   const tabs = TABS.filter((t) => t.value === null || kinds.has(t.value))
+  const go = (next: { linha?: ProductLine | null; tipo?: PackageKind | null }) => {
+    const q = new URLSearchParams()
+    const l = 'linha' in next ? next.linha : line
+    const k = 'tipo' in next ? next.tipo : kind
+    if (l) q.set('linha', l)
+    if (k) q.set('tipo', k)
+    router.replace(q.size ? `${pathname}?${q}` : pathname, { scroll: false })
+  }
+  const business = line === 'empresas'
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-12 md:py-16">
       <div className="text-center max-w-2xl mx-auto mb-10">
         <h1 className="text-4xl md:text-6xl font-bold text-brand-ink">
-          Nossos <span className="text-rainbow">kits</span>
+          {business ? (
+            <>
+              Papelaria para <span className="text-rainbow">empresas</span>
+            </>
+          ) : (
+            <>
+              Nossos <span className="text-rainbow">kits</span>
+            </>
+          )}
         </h1>
         <p className="mt-4 text-[17px]">
-          Arquivos digitais para imprimir em casa, artes personalizadas com o nome da criança e kits impressos prontos para a sua festa. Pague com Pix ou cartão.
+          {business
+            ? 'Cartões de garantia, de cuidados, de agradecimento, tags e etiquetas com a identidade da sua marca. Você envia o logo, nós criamos e imprimimos.'
+            : 'Arquivos digitais para imprimir em casa, artes personalizadas com o nome da criança e kits impressos prontos para a sua festa. Pague com Pix ou cartão.'}
         </p>
+        {lines.size > 1 && (
+          <div className="mt-6 inline-flex rounded-full bg-white p-1 ring-1 ring-brand-pink/40" role="tablist" aria-label="Linha">
+            {(
+              [
+                [null, 'Tudo'],
+                ['festas', 'Festas'],
+                ['empresas', 'Para empresas'],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={label}
+                type="button"
+                role="tab"
+                aria-selected={line === value}
+                onClick={() => go({ linha: value, tipo: null })}
+                className={cn(
+                  'rounded-full px-4 py-1.5 text-sm font-semibold transition-colors',
+                  line === value ? 'bg-brand-grape text-white' : 'text-brand-ink hover:bg-brand-blush',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-12">
+      <div className={cn('grid grid-cols-2 lg:grid-cols-4 gap-3 mb-12', business && 'hidden')}>
         {steps.map(({ icon: Icon, title, desc }, i) => (
           <div key={title} className={`rounded-3xl p-4 ${stepBg[i]}`}>
             <div className="flex items-center gap-2 text-brand-ink">
@@ -77,7 +125,7 @@ function Pacotes() {
               type="button"
               role="tab"
               aria-selected={kind === t.value}
-              onClick={() => router.replace(t.value ? `${pathname}?tipo=${t.value}` : pathname, { scroll: false })}
+              onClick={() => go({ tipo: t.value })}
               className={cn(
                 'rounded-full px-4 py-2 text-sm font-semibold transition-colors',
                 kind === t.value ? 'bg-brand-rose text-white shadow-sm' : 'bg-white text-brand-ink ring-1 ring-brand-pink/40 hover:bg-brand-blush',
@@ -110,7 +158,7 @@ function Pacotes() {
       >
         {(packages) => (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {packages.filter((pkg) => !kind || pkg.kind === kind).map((pkg) => (
+            {packages.filter((pkg) => (!kind || pkg.kind === kind) && (!line || pkg.line === line)).map((pkg) => (
               <PackageCard key={pkg.id} pkg={pkg} />
             ))}
           </div>

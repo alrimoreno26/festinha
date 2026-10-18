@@ -272,3 +272,42 @@ export function Contact() {
     </section>
   )
 }
+
+const businessItems = [
+  { icon: '🛡️', title: 'Cartão de garantia', desc: 'Produto, material, data da compra e prazo, com a sua marca na frente.' },
+  { icon: '💎', title: 'Cartão de cuidados', desc: 'Dicas para o cliente conservar a peça: ideal para joias, semijoias e acessórios.' },
+  { icon: '💌', title: 'Cartão de agradecimento', desc: 'Aquele carinho que acompanha cada pedido e faz o cliente voltar.' },
+  { icon: '🏷️', title: 'Tags e etiquetas', desc: 'Para embalagens, sacolinhas e produtos, com o seu logo e as suas cores.' },
+]
+
+/** Linha "Para empresas": papelaria com a identidade de outros negócios (cartões, tags, etiquetas). */
+export function Business() {
+  return (
+    <section id="empresas" className="relative py-14 md:py-20">
+      <div className="max-w-6xl mx-auto px-4">
+        <SectionTitle subtitle="Cartões e papelaria com a identidade da sua marca: você envia o logo e os textos, nós criamos a arte, você aprova e imprimimos com capricho.">
+          Para o seu negócio
+        </SectionTitle>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {businessItems.map((b, i) => (
+            <motion.div key={b.title} {...fadeUp} transition={{ duration: 0.4, delay: 0.05 * i }} className="card-dashed p-5">
+              <p className="text-3xl" aria-hidden>
+                {b.icon}
+              </p>
+              <p className="mt-2 font-display text-lg font-semibold text-brand-ink">{b.title}</p>
+              <p className="mt-1 text-sm">{b.desc}</p>
+            </motion.div>
+          ))}
+        </div>
+        <div className="mt-8 flex flex-wrap justify-center gap-3">
+          <Link href="/pacotes?linha=empresas" className={buttonClasses('primary', 'lg')}>
+            Ver cartões para empresas
+          </Link>
+          <a href={whatsappUrl('Olá! Quero um orçamento de cartões para a minha empresa.')} target="_blank" rel="noreferrer" className={buttonClasses('outline', 'lg')}>
+            <MessageCircle size={18} /> Pedir orçamento
+          </a>
+        </div>
+      </div>
+    </section>
+  )
+}

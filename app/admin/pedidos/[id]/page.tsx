@@ -1,6 +1,6 @@
 'use client'
 
-import { CustomizationCard, ProductionCard } from '@/components/admin/OrderProduction'
+import { CustomerFilesCard, CustomizationCard, ProductionCard } from '@/components/admin/OrderProduction'
 import {
   Button,
   ButtonLink,
@@ -114,6 +114,7 @@ export default function PedidoPage({ params }: { params: { id: string } }) {
                 <Row label="Valor">
                   <span className="font-semibold tabular-nums">{formatBRL(order.amountCents)}</span>
                 </Row>
+                {order.variant && <Row label="Opção">{order.variant.label}</Row>}
                 <Row label="Método">{PAYMENT_METHOD[order.method]}</Row>
                 <Row label="Pago em">{order.paidAt ? formatDateTime(order.paidAt) : '—'}</Row>
                 <Row label="Processador">{payment.provider === 'mercadopago' ? 'Mercado Pago' : 'Simulador'}</Row>
@@ -180,6 +181,7 @@ export default function PedidoPage({ params }: { params: { id: string } }) {
             </Card>
 
             {order.customization && <CustomizationCard customization={order.customization} />}
+            {detail.customerFiles.length > 0 && <CustomerFilesCard files={detail.customerFiles} />}
             {madeToOrder && <ProductionCard detail={detail} />}
 
             {!madeToOrder && (

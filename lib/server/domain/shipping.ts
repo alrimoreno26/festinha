@@ -1,5 +1,6 @@
 // Frete de um pacote impresso até o CEP do cliente.
 
+import { priceFor } from '@/lib/contracts'
 import { ServiceError } from '@/lib/services/errors'
 import type { ShippingChoice } from '@/lib/types'
 import { and, eq } from 'drizzle-orm'
@@ -28,15 +29,22 @@ async function alertConfigProblem(db: Db, message: string) {
 }
 
 /** Cotação para o pacote (já carregado). Erros viram ServiceError com mensagem para o cliente. */
-export async function quotePackage(db: Db, pkg: PackageRow, postalCode: string, quoter: ShippingQuoter = getShippingQuoter()): Promise<ShippingChoice[]> {
+export async function quotePackage(
+  db: Db,
+  pkg: PackageRow,
+  postalCode: string,
+  quoter: ShippingQuoter = getShippingQuoter(),
+  /** Valor declarado: o preço da opção escolhida (ou o preço único). */
+  priceCents: number = pkg.priceCents,
+): Promise<ShippingChoice[]> {
   const cep = onlyDigits(postalCode)
   if (cep.length !== 8) throw new ServiceError('VALIDATION', 'Informe um CEP válido.', { postalCode: 'Informe um CEP com 8 dígitos.' })
   if (!canShip(pkg, quoter)) throw new ServiceError('CONFLICT', 'Este kit não tem envio disponível. Escolha a retirada.')
 
   const box = pkg.shippingBox!
-  const key = [pkg.id, cep, box.weightGrams, box.heightCm, box.widthCm, box.lengthCm, pkg.priceCents].join(':')
+  const key = [pkg.id, cep, box.weightGrams, box.heightCm, box.widthCm, box.lengthCm, priceCents].join(':')
   try {
-    const options = await quoteCached(quoter, key, { toPostalCode: cep, box, insuranceCents: pkg.priceCents })
+    const options = await quoteCached(quoter, key, { toPostalCode: cep, box, insuranceCents: priceCents })
     if (!options.length)
       throw new ServiceError('NOT_FOUND', 'Nenhuma transportadora atende este CEP para este pacote. Confira o CEP ou escolha a retirada.', {
         postalCode: 'Sem opções de envio para este CEP.',
@@ -58,13 +66,14 @@ export async function quotePackage(db: Db, pkg: PackageRow, postalCode: string, 
 }
 
 /** Rota pública: cotação pelo slug do pacote. */
-export async function quoteBySlug(db: Db, slug: string, postalCode: string, quoter: ShippingQuoter = getShippingQuoter()) {
+export async function quoteBySlug(db: Db, slug: string, postalCode: string, quoter: ShippingQuoter = getShippingQuoter(), variantId?: string | null) {
   const [pkg] = await db
     .select()
     .from(t.packages)
     .where(and(eq(t.packages.slug, slug), eq(t.packages.active, true)))
   if (!pkg) throw new ServiceError('NOT_FOUND', 'Este pacote não está mais disponível.')
-  return { options: await quotePackage(db, pkg, postalCode, quoter) }
+  const { priceCents } = priceFor(pkg, variantId)
+  return { options: await quotePackage(db, pkg, postalCode, quoter, priceCents) }
 }
 
 /** Só para testes: zera o controle de avisos. */

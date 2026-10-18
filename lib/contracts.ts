@@ -14,6 +14,7 @@ import type {
   PackageKind,
   PaymentMethod,
   ProductionStatus,
+  ProductLine,
   ShippingChoice,
   User,
 } from './types'
@@ -24,18 +25,45 @@ import type {
 
 export type PackageInput = Pick<
   Package,
-  'title' | 'slug' | 'description' | 'coverUrl' | 'priceCents' | 'active' | 'accessDays' | 'fileIds' | 'kind' | 'items' | 'customizationLevel' | 'shippingBox'
+  'title' | 'slug' | 'description' | 'coverUrl' | 'priceCents' | 'active' | 'accessDays' | 'fileIds' | 'kind' | 'items' | 'customizationLevel' | 'shippingBox' | 'line' | 'variants'
 >
 
 export const needsCustomization = (pkg: Pick<Package, 'customizationLevel'>) => pkg.customizationLevel !== 'none'
 /** Só a personalização completa leva nome e idade na arte. */
 export const needsName = (pkg: Pick<Package, 'customizationLevel'>) => pkg.customizationLevel === 'full'
 
-/** Nível efetivo para o tipo: kit pronto não pede nada, impresso pede tudo, personalizado digital escolhe. */
+/** Papelaria para empresas: pede marca, textos e logo (no lugar de nome/idade/tema). */
+export const isBusiness = (pkg: Pick<Package, 'customizationLevel'>) => pkg.customizationLevel === 'business'
+
+/**
+ * Nível efetivo para o tipo: kit pronto não pede nada; impresso pede tudo (festa ou empresa);
+ * personalizado digital pode pedir só o tema, tudo ou os dados da empresa.
+ */
 export function customizationFor(kind: PackageKind, level: CustomizationLevel): CustomizationLevel {
   if (kind === 'digital') return 'none'
+  if (level === 'business') return 'business'
   if (kind === 'printed') return 'full'
   return level === 'theme' ? 'theme' : 'full'
+}
+
+/** Preço de uma opção (ou o preço único, sem opções). */
+export function priceFor(pkg: Pick<Package, 'priceCents' | 'variants'>, variantId?: string | null) {
+  if (!pkg.variants.length) return { priceCents: pkg.priceCents, variant: null }
+  const variant = pkg.variants.find((v) => v.id === variantId) ?? null
+  return { priceCents: variant?.priceCents ?? pkg.priceCents, variant }
+}
+
+/** Arquivos que o cliente pode enviar no checkout (logo). */
+export const CUSTOMER_UPLOAD_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml', 'application/pdf']
+export const MAX_CUSTOMER_UPLOAD_BYTES = 15 * 1024 * 1024
+export const MAX_CUSTOMER_UPLOADS = 5
+
+export interface CustomerUploadTicket {
+  id: string
+  /** Comprova que foi este navegador que enviou (uso único, ao criar o pedido). */
+  token: string
+  uploadUrl: string | null
+  headers: Record<string, string>
 }
 
 /** O que o catálogo público vê de cada arquivo: só nome, tipo e tamanho (nunca a key do bucket). */
@@ -99,6 +127,8 @@ export const customizationSchema = z.object({
   theme: z.string().trim().max(200).default(''),
   colors: z.string().trim().max(200).default(''),
   notes: z.string().trim().max(2000).default(''),
+  businessName: z.string().trim().max(120).default(''),
+  cardText: z.string().trim().max(2000).default(''),
 })
 
 export const shippingAddressSchema = z.object({
@@ -122,6 +152,13 @@ export const checkoutSchema = z.object({
   shippingAddress: shippingAddressSchema.optional(),
   /** Serviço escolhido entre as opções da cotação; o preço é recalculado no servidor. */
   shippingServiceId: z.number().int().optional(),
+  /** Opção de quantidade/preço escolhida (pacotes com opções). */
+  variantId: z.string().max(40).optional(),
+  /** Arquivos enviados pelo cliente (ex.: logo), com o token recebido no upload. */
+  uploads: z
+    .array(z.object({ id: z.string().max(40), token: z.string().max(100) }))
+    .max(5)
+    .optional(),
   name: z.string().trim().min(3, 'Informe seu nome completo.'),
   email: z.string().trim().toLowerCase().email('Informe um email válido.'),
   phone: z
@@ -169,6 +206,7 @@ export interface OrderFilters {
 export interface AdminOrderRow extends Order {
   packageTitle: string
   packageKind: PackageKind
+  packageLine: ProductLine
 }
 
 export const productionUpdateSchema = z.object({
@@ -186,6 +224,8 @@ export interface AdminOrderDetail {
   entitlement: (Entitlement & { status: EntitlementStatus }) | null
   /** Arquivos finais enviados para o cliente (personalizado digital). */
   files: FileItem[]
+  /** Arquivos que o cliente enviou no checkout (ex.: logo). */
+  customerFiles: FileItem[]
   /** Como o pedido é pago e o que o Mercado Pago informou por último (para suporte). */
   payment: { provider: 'mercadopago' | 'simulator'; mpPaymentId: string | null; mpStatus: string | null }
 }

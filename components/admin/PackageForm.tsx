@@ -5,7 +5,7 @@ import { Button, ButtonLink, Card, ConfirmDialog, Field, FileIcon, Input, PACKAG
 import { formatBRL, formatBytes, parseBRL, slugify, unitsLabel } from '@/lib/format'
 import { errorMessage, filesService, packagesService, qk, ServiceError } from '@/lib/services'
 import type { PackageInput } from '@/lib/services/packages'
-import type { CustomizationLevel, Package, PackageItem, PackageKind } from '@/lib/types'
+import type { CustomizationLevel, Package, PackageItem, PackageKind, ProductLine } from '@/lib/types'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { ArrowDown, ArrowUp, ExternalLink, ImagePlus, Plus, Trash2, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -40,7 +40,19 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
   const [fileIds, setFileIds] = useState<string[]>(pkg?.fileIds ?? [])
   const [kind, setKind] = useState<PackageKind>(pkg?.kind ?? 'digital')
   const [items, setItems] = useState<ItemRow[]>((pkg?.items ?? []).map((i) => ({ name: i.name, quantity: String(i.quantity) })))
-  const [level, setLevel] = useState<CustomizationLevel>(pkg?.customizationLevel === 'theme' ? 'theme' : 'full')
+  const [level, setLevel] = useState<CustomizationLevel>(
+    pkg?.customizationLevel === 'theme' || pkg?.customizationLevel === 'business' ? pkg.customizationLevel : 'full',
+  )
+  const [line, setLine] = useState<ProductLine>(pkg?.line ?? 'festas')
+  type VariantRow = { id: string; label: string; price: string }
+  const [variants, setVariants] = useState<VariantRow[]>((pkg?.variants ?? []).map((v) => ({ id: v.id, label: v.label, price: centsToText(v.priceCents) })))
+  const setVariant = (index: number, patch: Partial<VariantRow>) => setVariants((list) => list.map((v, i) => (i === index ? { ...v, ...patch } : v)))
+  // Papelaria para empresas pede os dados da marca no checkout.
+  const changeLine = (next: ProductLine) => {
+    setLine(next)
+    if (next === 'empresas') setLevel('business')
+    else if (level === 'business') setLevel('full')
+  }
   const [box, setBox] = useState({
     weightGrams: String(pkg?.shippingBox?.weightGrams ?? ''),
     heightCm: String(pkg?.shippingBox?.heightCm ?? ''),
@@ -65,6 +77,10 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
     items: items.filter((i) => i.name.trim()).map((i): PackageItem => ({ name: i.name, quantity: Number(i.quantity) })),
     customizationLevel: level,
     // Sem nenhuma medida preenchida = sem envio (só retirada).
+    line,
+    variants: variants
+      .filter((v) => v.label.trim())
+      .map((v) => ({ id: v.id, label: v.label, priceCents: parseBRL(v.price) ?? 0 })),
     shippingBox: boxFilled
       ? { weightGrams: Number(box.weightGrams), heightCm: Number(box.heightCm), widthCm: Number(box.widthCm), lengthCm: Number(box.lengthCm) }
       : null,
@@ -128,6 +144,12 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
       <div className="space-y-6 min-w-0">
         <Card className="p-6 space-y-4">
           <h2 className="font-semibold text-gray-900">Informações</h2>
+          <Field label="Linha" hint={line === 'empresas' ? 'Cartões, tags e etiquetas para outros negócios.' : 'Kits e papelaria para festas.'}>
+            <Select value={line} onChange={(e) => changeLine(e.target.value as ProductLine)}>
+              <option value="festas">Festas</option>
+              <option value="empresas">Para empresas</option>
+            </Select>
+          </Field>
           <Field label="Tipo de pacote" hint={KIND_HELP[kind]}>
             <Select value={kind} onChange={(e) => setKind(e.target.value as PackageKind)}>
               {(Object.keys(PACKAGE_KIND) as PackageKind[]).map((k) => (
@@ -273,9 +295,44 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
       <div className="space-y-6 lg:sticky lg:top-6">
         <Card className="p-6 space-y-4">
           <h2 className="font-semibold text-gray-900">Venda</h2>
-          <Field label="Preço (R$)" error={errors.priceCents} hint={parsedPrice ? formatBRL(parsedPrice) : undefined}>
-            <Input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="49,90" />
-          </Field>
+          {variants.length === 0 && (
+            <Field label="Preço (R$)" error={errors.priceCents} hint={parsedPrice ? formatBRL(parsedPrice) : undefined}>
+              <Input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="49,90" />
+            </Field>
+          )}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium text-gray-700">Opções de quantidade</p>
+              <Button variant="ghost" size="sm" onClick={() => setVariants((list) => [...list, { id: '', label: '', price: '' }])}>
+                <Plus size={14} /> Opção
+              </Button>
+            </div>
+            {variants.length === 0 ? (
+              <p className="text-xs text-gray-500">Opcional. Ex.: 50 unidades por R$ 39,90 e 100 unidades por R$ 69,90. O cliente escolhe na compra.</p>
+            ) : (
+              <ul className="space-y-2">
+                {variants.map((v, i) => (
+                  <li key={i} className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <Input value={v.label} onChange={(e) => setVariant(i, { label: e.target.value })} placeholder="100 unidades" aria-label="Nome da opção" maxLength={80} />
+                    </div>
+                    <div className="w-24 shrink-0">
+                      <Input value={v.price} onChange={(e) => setVariant(i, { price: e.target.value })} inputMode="decimal" placeholder="59,90" aria-label="Preço da opção" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setVariants((list) => list.filter((_, j) => j !== i))}
+                      className="shrink-0 rounded-lg p-2 text-gray-500 hover:bg-red-50 hover:text-red-600"
+                      aria-label="Remover opção"
+                    >
+                      <X size={14} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {errors.variants && <p className="text-sm text-red-600">{errors.variants}</p>}
+          </div>
           {digital ? (
             <>
               <Field label="Acesso após a compra">
@@ -292,18 +349,20 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
             </>
           ) : (
             <>
-              {kind === 'custom_digital' && (
-                <Field label="O que pedir no checkout">
-                  <Select value={level} onChange={(e) => setLevel(e.target.value as CustomizationLevel)}>
-                    <option value="full">Nome, idade, tema e cores (personalizado)</option>
-                    <option value="theme">Só o tema (ex.: tema individual)</option>
-                  </Select>
-                </Field>
-              )}
+              <Field label="O que pedir no checkout">
+                <Select value={level} onChange={(e) => setLevel(e.target.value as CustomizationLevel)}>
+                  <option value="full">Nome, idade, tema e cores (festa)</option>
+                  {kind === 'custom_digital' && <option value="theme">Só o tema (ex.: tema individual)</option>}
+                  <option value="business">Marca, textos e logo (empresa)</option>
+                </Select>
+              </Field>
               <p className="rounded-2xl bg-brand-blush p-3 text-xs text-brand-ink">
-                {kind === 'custom_digital' && level === 'theme'
-                  ? 'O checkout pede o tema e observações. Você envia os arquivos do tema escolhido no pedido.'
-                  : `O checkout pede nome, idade, tema, cores e observações${kind === 'printed' ? ', além de retirada ou entrega' : ''}.`}
+                {level === 'business'
+                  ? 'O checkout pede o nome da marca, os textos do cartão, as cores e o logo (o cliente envia o arquivo).'
+                  : kind === 'custom_digital' && level === 'theme'
+                    ? 'O checkout pede o tema e observações. Você envia os arquivos do tema escolhido no pedido.'
+                    : 'O checkout pede nome, idade, tema, cores e observações.'}
+                {kind === 'printed' && ' Também pede retirada ou envio.'}
               </p>
             </>
           )}

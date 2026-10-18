@@ -1,5 +1,5 @@
 import { FeaturedKits } from '@/components/landing/FeaturedKits'
-import { About, Contact, Gallery, Hero, HowItWorks, Options, Themes } from '@/components/landing/Sections'
+import { About, Business, Contact, Gallery, Hero, HowItWorks, Options, Themes } from '@/components/landing/Sections'
 
 const gallery = [
   { src: '/galeria/colecao-festinhas.webp', alt: 'Caixinhas, plaquinhas de mesa e livrinhos de colorir personalizados' },
@@ -19,6 +19,7 @@ export default function Page() {
       <HowItWorks />
       <FeaturedKits />
       <Options />
+      <Business />
       <Themes />
       <Gallery items={gallery} />
       <Contact />

@@ -74,7 +74,7 @@ export async function myOrders(db: Db, actor: Actor): Promise<MyOrder[]> {
         .select({ orderId: t.orderFiles.orderId, file: t.files })
         .from(t.orderFiles)
         .innerJoin(t.files, eq(t.orderFiles.fileId, t.files.id))
-        .where(inArray(t.orderFiles.orderId, delivered))
+        .where(and(inArray(t.orderFiles.orderId, delivered), eq(t.orderFiles.role, 'delivery')))
         .orderBy(asc(t.orderFiles.position))
     : []
   const kitFile = (f: typeof t.files.$inferSelect): KitFile => ({ id: f.id, filename: f.filename, mime: f.mime, size: f.size })
@@ -108,7 +108,7 @@ async function checkDownloadAccess(db: Db, actor: Actor, fileId: string) {
     .select({ status: t.orders.status, productionStatus: t.orders.productionStatus })
     .from(t.orderFiles)
     .innerJoin(t.orders, eq(t.orderFiles.orderId, t.orders.id))
-    .where(and(eq(t.orders.userId, user.id), eq(t.orderFiles.fileId, fileId)))
+    .where(and(eq(t.orders.userId, user.id), eq(t.orderFiles.fileId, fileId), eq(t.orderFiles.role, 'delivery')))
   if (!orders.some(canDownloadOrder)) throw new ServiceError('FORBIDDEN', 'Seu acesso a este arquivo expirou ou foi revogado.')
   return { user, file }
 }

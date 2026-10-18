@@ -122,6 +122,9 @@ export async function approveOrder(db: Db, orderId: string) {
       deliveryMethod: order.deliveryMethod,
       shippingAddress: order.shippingAddress,
       shipping: order.shipping,
+      variant: order.variant,
+      customerFiles: (await db.select({ id: t.orderFiles.fileId }).from(t.orderFiles).where(and(eq(t.orderFiles.orderId, orderId), eq(t.orderFiles.role, 'customer'))))
+        .length,
       newCustomer: !!tempPassword,
       appUrl: emailConfig().appUrl,
     }),

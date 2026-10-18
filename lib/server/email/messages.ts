@@ -69,9 +69,13 @@ export function accessResent(p: { name: string; email: string; tempPassword: str
 }
 
 /** Resumo da personalização, repetido no email para o cliente conferir. */
-function customizationLines(c: { childName: string; age: string; theme: string; colors: string; notes: string } | null) {
+function customizationLines(
+  c: { childName: string; age: string; theme: string; colors: string; notes: string; businessName?: string; cardText?: string } | null,
+) {
   if (!c) return ''
   const lines = [
+    c.businessName && `Empresa/marca: ${c.businessName}`,
+    c.cardText && `Textos do cartão: ${c.cardText}`,
     c.childName && `Nome: ${c.childName}`,
     c.age && `Idade: ${c.age}`,
     c.theme && `Tema: ${c.theme}`,

@@ -73,7 +73,10 @@ function OrderCard({ order: o }: { order: MyOrder }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-semibold text-gray-900">{o.packageTitle}</p>
+            <p className="font-semibold text-gray-900">
+              {o.packageTitle}
+              {o.variant && <span className="font-normal text-gray-500"> · {o.variant.label}</span>}
+            </p>
             {o.packageKind !== 'digital' && <KindBadge kind={o.packageKind} />}
           </div>
           <p className="mt-0.5 text-xs text-gray-500">

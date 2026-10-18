@@ -29,5 +29,6 @@ export const checkoutService = {
 
 export const shippingService = {
   /** Opções de frete (Melhor Envio) até o CEP. O valor final é recalculado no servidor ao criar o pedido. */
-  quote: (packageSlug: string, postalCode: string) => api<ShippingQuote>('POST', '/api/shipping/quote', { packageSlug, postalCode }),
+  quote: (packageSlug: string, postalCode: string, variantId?: string | null) =>
+    api<ShippingQuote>('POST', '/api/shipping/quote', { packageSlug, postalCode, variantId: variantId ?? undefined }),
 }

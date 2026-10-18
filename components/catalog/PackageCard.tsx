@@ -15,8 +15,9 @@ export function PackageCover({ src, alt, className }: { src: string | null; alt:
 }
 
 /** Resumo curto do conteúdo: arquivos e acesso (kit pronto) ou unidades (sob encomenda). */
-export function packageSummary(pkg: Pick<PublicPackage, 'kind' | 'items' | 'files' | 'accessDays' | 'variants'>) {
+export function packageSummary(pkg: Pick<PublicPackage, 'kind' | 'items' | 'files' | 'accessDays' | 'variants' | 'sheetPricing'>) {
   const units = pkg.items.reduce((sum, i) => sum + i.quantity, 0)
+  if (pkg.sheetPricing) return `${pkg.sheetPricing.cardsPerSheet} cartões por folha A4 · seu design`
   if (pkg.variants.length) return `${pkg.variants.length} opções de quantidade · personalizado`
   if (pkg.kind !== 'digital') return units ? `${unitsLabel(units)} · personalizado` : 'Personalizado com seu tema'
   return `${pkg.files.length} arquivos · ${accessLabel(pkg.accessDays)}`
@@ -42,7 +43,9 @@ export function PackageCard({ pkg }: { pkg: PublicPackage }) {
           </div>
           <div className="mt-auto pt-4 flex items-center justify-between">
             <p className="font-display text-2xl font-bold text-brand-rose tabular-nums">
-              {pkg.variants.length > 1 && <span className="mr-1 font-sans text-xs font-semibold text-gray-500">a partir de</span>}
+              {(pkg.variants.length > 1 || pkg.sheetPricing) && (
+                <span className="mr-1 font-sans text-xs font-semibold text-gray-500">{pkg.sheetPricing ? 'folha' : 'a partir de'}</span>
+              )}
               {formatBRL(pkg.priceCents)}
             </p>
             <span className="text-sm font-medium text-brand-rose group-hover:underline">Ver kit →</span>

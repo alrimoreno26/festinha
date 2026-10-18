@@ -13,6 +13,7 @@ const schema = z.object({
   shippingAddress: z.record(z.string().max(200)).optional(),
   shippingServiceId: z.number().int().optional(),
   variantId: z.string().max(40).optional(),
+  quantity: z.number().int().optional(),
   uploads: z
     .array(z.object({ id: z.string().max(40), token: z.string().max(100) }))
     .max(5)

@@ -12,3 +12,8 @@ export const DELIVERY_LABEL: Record<DeliveryMethod, string> = {
   pickup: 'Retirada no local',
   shipping: 'Envio pelos Correios/transportadora',
 }
+
+/** Opção escolhida com as folhas A4, ex.: "100 cartões · 12 folhas A4" (útil para a produção). */
+export function variantText(v: { label: string; sheets?: number }) {
+  return v.sheets && !/folha/i.test(v.label) ? `${v.label} · ${v.sheets} ${v.sheets === 1 ? 'folha' : 'folhas'} A4` : v.label
+}

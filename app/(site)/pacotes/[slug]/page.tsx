@@ -6,11 +6,12 @@ import { accessLabel, formatBRL, formatBytes, unitsLabel } from '@/lib/format'
 import { packagesService, qk, ServiceError } from '@/lib/services'
 import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/cn'
-import { isBusiness } from '@/lib/contracts'
+import { isBusiness, needsQuantity, PER_SHEET_ID, priceFor } from '@/lib/contracts'
+import { QuantityPicker, type QuantityValue } from '@/components/catalog/QuantityPicker'
 import { useState } from 'react'
 import type { PackageKind } from '@/lib/types'
 import { BRAND, whatsappUrl } from '@/lib/brand'
-import { CalendarClock, ChevronLeft, CreditCard, Mail, MessageCircle, Palette, SearchX, Store, Truck, Zap, type LucideIcon } from 'lucide-react'
+import { CalendarClock, ChevronLeft, CreditCard, Mail, MessageCircle, Palette, SearchX, Printer, Store, Truck, Upload, Zap, type LucideIcon } from 'lucide-react'
 import Link from 'next/link'
 
 const pixFaq = { q: 'O pagamento por Pix demora?', a: 'Normalmente é confirmado em segundos. A página atualiza sozinha quando o Pix cair.' }
@@ -35,10 +36,17 @@ const FAQ: Record<PackageKind, { q: string; a: string }[]> = {
 
 /** Papelaria para empresas (cartões de garantia, de cuidados, tags…): dúvidas próprias. */
 const BUSINESS_FAQ = [
-  { q: 'Como envio o meu logo?', a: 'No checkout você envia o logo (PNG, JPG, SVG ou PDF) e conta os textos e as cores. Se preferir, mande depois pelo WhatsApp.' },
-  { q: 'Vou ver a arte antes de imprimir?', a: 'Sim. Montamos a arte com a identidade da sua marca e enviamos para você aprovar antes da impressão. Alterações podem ser pedidas em até 48 horas após a aprovação.' },
+  { q: 'Como envio o meu design?', a: 'No checkout você envia o arquivo pronto do cartão (PDF ou imagem em alta resolução, 300 dpi). Se tiver frente e verso, envie os dois arquivos.' },
+  { q: 'Quantos cartões cabem numa folha?', a: 'Em cada folha A4 cabem 9 cartões. Até 49 cartões você paga por folha; a partir de 50, escolha um dos pacotes com preço especial.' },
+  { q: 'Vocês criam ou ajustam o design?', a: 'Este serviço é de impressão: imprimimos exatamente o arquivo enviado. Confira textos, cores e medidas antes de enviar. Se precisar de ajuda com a arte, fale com a gente pelo WhatsApp.' },
   { q: 'Como recebo os cartões?', a: 'Você pode retirar no local ou receber em casa pelos Correios ou transportadora, com frete calculado pelo CEP no checkout.' },
   pixFaq,
+]
+
+const BUSINESS_FEATURES: { icon: LucideIcon; text: string }[] = [
+  { icon: Upload, text: 'Você envia o design pronto (PDF ou imagem em alta resolução)' },
+  { icon: Printer, text: 'Impressão com qualidade: 9 cartões por folha A4' },
+  { icon: Truck, text: 'Retirada no local ou envio para todo o Brasil' },
 ]
 
 const FEATURES: Record<PackageKind, (accessDays: number | null) => { icon: LucideIcon; text: string }[]> = {
@@ -60,7 +68,7 @@ const FEATURES: Record<PackageKind, (accessDays: number | null) => { icon: Lucid
 }
 
 export default function PacotePage({ params }: { params: { slug: string } }) {
-  const [variantId, setVariantId] = useState<string | null>(null)
+  const [qty, setQty] = useState<QuantityValue | null>(null)
   const query = useQuery({
     queryKey: qk.publicPackage(params.slug),
     queryFn: () => packagesService.getPublicBySlug(params.slug),
@@ -114,9 +122,13 @@ export default function PacotePage({ params }: { params: { slug: string } }) {
   const totalSize = pkg.files.reduce((s, f) => s + f.size, 0)
   const units = pkg.items.reduce((s, i) => s + i.quantity, 0)
   const faq = isBusiness(pkg) ? BUSINESS_FAQ : FAQ[pkg.kind]
-  const option = pkg.variants.find((v) => v.id === variantId) ?? pkg.variants[0] ?? null
-  const price = option?.priceCents ?? pkg.priceCents
-  const buyHref = `/checkout/${pkg.slug}${option ? `?opcao=${option.id}` : ''}`
+  // Seleção padrão: com cobrança por folha, uma folha avulsa; senão, a primeira opção.
+  const choice: QuantityValue =
+    qty ?? (pkg.sheetPricing ? { variantId: PER_SHEET_ID, quantity: pkg.sheetPricing.cardsPerSheet } : { variantId: pkg.variants[0]?.id ?? null, quantity: null })
+  const { priceCents: price, variant: option } = priceFor(pkg, choice.variantId, choice.quantity)
+  const buyHref = `/checkout/${pkg.slug}${
+    option ? `?opcao=${option.id}${option.id === PER_SHEET_ID ? `&qtd=${option.quantity}` : ''}` : ''
+  }`
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-10 pb-28 md:pb-10">
@@ -137,34 +149,17 @@ export default function PacotePage({ params }: { params: { slug: string } }) {
           </div>
 
           <ul className="mt-4 grid gap-2 text-sm text-gray-700">
-            {FEATURES[pkg.kind](pkg.accessDays).map(({ icon: Icon, text }) => (
+            {(isBusiness(pkg) ? BUSINESS_FEATURES : FEATURES[pkg.kind](pkg.accessDays)).map(({ icon: Icon, text }) => (
               <li key={text} className="flex items-center gap-2">
                 <Icon size={16} className="text-brand-grape shrink-0" /> {text}
               </li>
             ))}
           </ul>
 
-          {pkg.variants.length > 0 && (
-            <div className="mt-5" role="radiogroup" aria-label="Quantidade">
+          {needsQuantity(pkg) && (
+            <div className="mt-5">
               <p className="mb-2 text-sm font-semibold text-gray-700">Quantidade</p>
-              <div className="flex flex-wrap gap-2">
-                {pkg.variants.map((v) => (
-                  <button
-                    key={v.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={option?.id === v.id}
-                    onClick={() => setVariantId(v.id)}
-                    className={cn(
-                      'rounded-2xl border-2 px-4 py-2 text-left text-sm transition-colors',
-                      option?.id === v.id ? 'border-brand-rose bg-brand-blush' : 'border-gray-200 bg-white hover:border-brand-pink',
-                    )}
-                  >
-                    <span className="block font-semibold text-gray-900">{v.label}</span>
-                    <span className="block tabular-nums text-brand-rose">{formatBRL(v.priceCents)}</span>
-                  </button>
-                ))}
-              </div>
+              <QuantityPicker pkg={pkg} value={choice} onChange={setQty} />
             </div>
           )}
 
@@ -172,7 +167,7 @@ export default function PacotePage({ params }: { params: { slug: string } }) {
             Comprar agora
           </ButtonLink>
 
-          {pkg.items.length > 0 && (
+          {pkg.items.length > 0 && !isBusiness(pkg) && (
             <Card className="mt-8 p-5">
               <div className="flex items-baseline justify-between">
                 <h2 className="font-semibold text-gray-900">O que vem no kit</h2>

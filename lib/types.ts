@@ -40,6 +40,23 @@ export interface PackageVariant {
   id: string
   label: string
   priceCents: number
+  /** Quantidade de unidades (cartões) da opção. Obrigatório quando o pacote cobra por folha. */
+  quantity?: number
+  /** Folhas A4 necessárias (calculado). */
+  sheets?: number
+}
+
+/**
+ * Impressão por folha (cartões de apresentação): abaixo de `minUnitsForOptions` unidades,
+ * o cliente escolhe qualquer quantidade e paga por folha; a partir daí valem as opções configuradas.
+ */
+export interface SheetPricing {
+  /** Quantos cartões cabem numa folha A4 (padrão 9). */
+  cardsPerSheet: number
+  /** Preço de cada folha, em centavos (padrão R$ 6,00). */
+  sheetPriceCents: number
+  /** A partir desta quantidade, valem as opções de quantidade (padrão 50). */
+  minUnitsForOptions: number
 }
 
 /**
@@ -47,7 +64,7 @@ export interface PackageVariant {
  * - none: nada (kit digital pronto);
  * - theme: só o tema e observações (ex.: tema individual, com os arquivos do tema escolhido);
  * - full: nome, idade, tema, cores e observações (personalizados e impressos de festa);
- * - business: nome da marca, textos do cartão, cores, logo e observações (papelaria para empresas).
+ * - business: impressão do design enviado pelo cliente (arquivo obrigatório) e observações.
  */
 export type CustomizationLevel = 'none' | 'theme' | 'full' | 'business'
 
@@ -83,6 +100,8 @@ export interface Package {
   line: ProductLine
   /** Opções de quantidade/preço. Vazio = preço único (priceCents). Com opções, priceCents é o menor preço. */
   variants: PackageVariant[]
+  /** Cobrança por folha para quantidades pequenas (impressão de cartões). null = não se aplica. */
+  sheetPricing: SheetPricing | null
   /** Dias de acesso após a compra. `null` = vitalício. */
   accessDays: number | null
   /** Arquivos do pacote, na ordem de exibição. */

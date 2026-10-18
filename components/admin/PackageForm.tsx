@@ -4,6 +4,7 @@ import { PackageCover } from '@/components/catalog/PackageCard'
 import { Button, ButtonLink, Card, ConfirmDialog, Field, FileIcon, Input, PACKAGE_KIND, Select, Switch, Textarea, useToast } from '@/components/ui'
 import { formatBRL, formatBytes, parseBRL, slugify, unitsLabel } from '@/lib/format'
 import { errorMessage, filesService, packagesService, qk, ServiceError } from '@/lib/services'
+import { DEFAULT_SHEET_PRICING } from '@/lib/contracts'
 import type { PackageInput } from '@/lib/services/packages'
 import type { CustomizationLevel, Package, PackageItem, PackageKind, ProductLine } from '@/lib/types'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -44,8 +45,17 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
     pkg?.customizationLevel === 'theme' || pkg?.customizationLevel === 'business' ? pkg.customizationLevel : 'full',
   )
   const [line, setLine] = useState<ProductLine>(pkg?.line ?? 'festas')
-  type VariantRow = { id: string; label: string; price: string }
-  const [variants, setVariants] = useState<VariantRow[]>((pkg?.variants ?? []).map((v) => ({ id: v.id, label: v.label, price: centsToText(v.priceCents) })))
+  type VariantRow = { id: string; label: string; price: string; quantity: string }
+  const [variants, setVariants] = useState<VariantRow[]>(
+    (pkg?.variants ?? []).map((v) => ({ id: v.id, label: v.label, price: centsToText(v.priceCents), quantity: v.quantity ? String(v.quantity) : '' })),
+  )
+  // Impressão por folha (cartões): quantidade livre abaixo do mínimo, cobrada por folha A4.
+  const [sheetOn, setSheetOn] = useState(!!pkg?.sheetPricing)
+  const [sheet, setSheet] = useState({
+    cardsPerSheet: String(pkg?.sheetPricing?.cardsPerSheet ?? DEFAULT_SHEET_PRICING.cardsPerSheet),
+    sheetPrice: centsToText(pkg?.sheetPricing?.sheetPriceCents ?? DEFAULT_SHEET_PRICING.sheetPriceCents),
+    minUnits: String(pkg?.sheetPricing?.minUnitsForOptions ?? DEFAULT_SHEET_PRICING.minUnitsForOptions),
+  })
   const setVariant = (index: number, patch: Partial<VariantRow>) => setVariants((list) => list.map((v, i) => (i === index ? { ...v, ...patch } : v)))
   // Papelaria para empresas pede os dados da marca no checkout.
   const changeLine = (next: ProductLine) => {
@@ -80,7 +90,11 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
     line,
     variants: variants
       .filter((v) => v.label.trim())
-      .map((v) => ({ id: v.id, label: v.label, priceCents: parseBRL(v.price) ?? 0 })),
+      .map((v) => ({ id: v.id, label: v.label, priceCents: parseBRL(v.price) ?? 0, ...(Number(v.quantity) ? { quantity: Number(v.quantity) } : {}) })),
+    sheetPricing:
+      kind === 'printed' && sheetOn
+        ? { cardsPerSheet: Number(sheet.cardsPerSheet), sheetPriceCents: parseBRL(sheet.sheetPrice) ?? 0, minUnitsForOptions: Number(sheet.minUnits) }
+        : null,
     shippingBox: boxFilled
       ? { weightGrams: Number(box.weightGrams), heightCm: Number(box.heightCm), widthCm: Number(box.widthCm), lengthCm: Number(box.lengthCm) }
       : null,
@@ -295,7 +309,7 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
       <div className="space-y-6 lg:sticky lg:top-6">
         <Card className="p-6 space-y-4">
           <h2 className="font-semibold text-gray-900">Venda</h2>
-          {variants.length === 0 && (
+          {variants.length === 0 && !(sheetOn && kind === 'printed') && (
             <Field label="Preço (R$)" error={errors.priceCents} hint={parsedPrice ? formatBRL(parsedPrice) : undefined}>
               <Input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="49,90" />
             </Field>
@@ -303,7 +317,7 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-medium text-gray-700">Opções de quantidade</p>
-              <Button variant="ghost" size="sm" onClick={() => setVariants((list) => [...list, { id: '', label: '', price: '' }])}>
+              <Button variant="ghost" size="sm" onClick={() => setVariants((list) => [...list, { id: '', label: '', price: '', quantity: '' }])}>
                 <Plus size={14} /> Opção
               </Button>
             </div>
@@ -314,8 +328,13 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
                 {variants.map((v, i) => (
                   <li key={i} className="flex items-center gap-2">
                     <div className="min-w-0 flex-1">
-                      <Input value={v.label} onChange={(e) => setVariant(i, { label: e.target.value })} placeholder="100 unidades" aria-label="Nome da opção" maxLength={80} />
+                      <Input value={v.label} onChange={(e) => setVariant(i, { label: e.target.value })} placeholder="100 cartões" aria-label="Nome da opção" maxLength={80} />
                     </div>
+                    {sheetOn && kind === 'printed' && (
+                      <div className="w-16 shrink-0">
+                        <Input value={v.quantity} onChange={(e) => setVariant(i, { quantity: e.target.value.replace(/\D/g, '') })} inputMode="numeric" placeholder="100" aria-label="Unidades da opção" />
+                      </div>
+                    )}
                     <div className="w-24 shrink-0">
                       <Input value={v.price} onChange={(e) => setVariant(i, { price: e.target.value })} inputMode="decimal" placeholder="59,90" aria-label="Preço da opção" />
                     </div>
@@ -333,6 +352,31 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
             )}
             {errors.variants && <p className="text-sm text-red-600">{errors.variants}</p>}
           </div>
+          {kind === 'printed' && (
+            <div className="space-y-3 rounded-2xl bg-gray-50 p-3">
+              <Switch checked={sheetOn} onChange={setSheetOn} label="Cobrar por folha abaixo de um mínimo" />
+              {sheetOn && (
+                <>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Field label="Por folha">
+                      <Input value={sheet.cardsPerSheet} onChange={(e) => setSheet((x) => ({ ...x, cardsPerSheet: e.target.value.replace(/\D/g, '') }))} inputMode="numeric" />
+                    </Field>
+                    <Field label="R$ folha">
+                      <Input value={sheet.sheetPrice} onChange={(e) => setSheet((x) => ({ ...x, sheetPrice: e.target.value }))} inputMode="decimal" />
+                    </Field>
+                    <Field label="A partir de">
+                      <Input value={sheet.minUnits} onChange={(e) => setSheet((x) => ({ ...x, minUnits: e.target.value.replace(/\D/g, '') }))} inputMode="numeric" />
+                    </Field>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Ex.: {sheet.cardsPerSheet || '9'} cartões por folha A4. Abaixo de {sheet.minUnits || '50'} unidades o cliente escolhe a quantidade e paga{' '}
+                    {parseBRL(sheet.sheetPrice) ? formatBRL(parseBRL(sheet.sheetPrice)!) : 'R$ 6,00'} por folha; a partir daí valem as opções acima (informe as unidades de cada uma).
+                  </p>
+                  {errors.sheetPricing && <p className="text-sm text-red-600">{errors.sheetPricing}</p>}
+                </>
+              )}
+            </div>
+          )}
           {digital ? (
             <>
               <Field label="Acesso após a compra">
@@ -353,12 +397,12 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
                 <Select value={level} onChange={(e) => setLevel(e.target.value as CustomizationLevel)}>
                   <option value="full">Nome, idade, tema e cores (festa)</option>
                   {kind === 'custom_digital' && <option value="theme">Só o tema (ex.: tema individual)</option>}
-                  <option value="business">Marca, textos e logo (empresa)</option>
+                  <option value="business">Design enviado pelo cliente (impressão)</option>
                 </Select>
               </Field>
               <p className="rounded-2xl bg-brand-blush p-3 text-xs text-brand-ink">
                 {level === 'business'
-                  ? 'O checkout pede o nome da marca, os textos do cartão, as cores e o logo (o cliente envia o arquivo).'
+                  ? 'O cliente envia o arquivo do design pronto no checkout (obrigatório) e pode deixar observações.'
                   : kind === 'custom_digital' && level === 'theme'
                     ? 'O checkout pede o tema e observações. Você envia os arquivos do tema escolhido no pedido.'
                     : 'O checkout pede nome, idade, tema, cores e observações.'}

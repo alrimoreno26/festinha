@@ -14,7 +14,9 @@ import type {
   PackageKind,
   PaymentMethod,
   ProductionStatus,
+  PackageVariant,
   ProductLine,
+  SheetPricing,
   ShippingChoice,
   User,
 } from './types'
@@ -25,7 +27,7 @@ import type {
 
 export type PackageInput = Pick<
   Package,
-  'title' | 'slug' | 'description' | 'coverUrl' | 'priceCents' | 'active' | 'accessDays' | 'fileIds' | 'kind' | 'items' | 'customizationLevel' | 'shippingBox' | 'line' | 'variants'
+  'title' | 'slug' | 'description' | 'coverUrl' | 'priceCents' | 'active' | 'accessDays' | 'fileIds' | 'kind' | 'items' | 'customizationLevel' | 'shippingBox' | 'line' | 'variants' | 'sheetPricing'
 >
 
 export const needsCustomization = (pkg: Pick<Package, 'customizationLevel'>) => pkg.customizationLevel !== 'none'
@@ -46,14 +48,50 @@ export function customizationFor(kind: PackageKind, level: CustomizationLevel): 
   return level === 'theme' ? 'theme' : 'full'
 }
 
-/** Preço de uma opção (ou o preço único, sem opções). */
-export function priceFor(pkg: Pick<Package, 'priceCents' | 'variants'>, variantId?: string | null) {
+export const DEFAULT_SHEET_PRICING: SheetPricing = { cardsPerSheet: 9, sheetPriceCents: 600, minUnitsForOptions: 50 }
+
+/** Id da "opção" calculada por folha (quantidade livre abaixo do mínimo das opções). */
+export const PER_SHEET_ID = 'por-folha'
+
+export const sheetsFor = (units: number, cardsPerSheet: number) => Math.ceil(units / cardsPerSheet)
+
+/** Quantidade livre válida para cobrança por folha (1 até o mínimo das opções - 1). */
+export const validCustomQuantity = (sp: SheetPricing, units: number | null | undefined): units is number =>
+  Number.isInteger(units) && (units as number) >= 1 && (units as number) < sp.minUnitsForOptions
+
+/** Opção "por folha" para uma quantidade livre, ex.: 20 cartões = 3 folhas = R$ 18,00. */
+export function perSheetVariant(sp: SheetPricing, units: number): PackageVariant {
+  const sheets = sheetsFor(units, sp.cardsPerSheet)
+  return {
+    id: PER_SHEET_ID,
+    label: `${units} ${units === 1 ? 'cartão' : 'cartões'} (${sheets} ${sheets === 1 ? 'folha' : 'folhas'} A4)`,
+    priceCents: sheets * sp.sheetPriceCents,
+    quantity: units,
+    sheets,
+  }
+}
+
+/**
+ * Preço do pedido: opção configurada, quantidade livre por folha (se o pacote cobra por folha)
+ * ou o preço único. Sempre recalculado no servidor.
+ */
+export function priceFor(pkg: Pick<Package, 'priceCents' | 'variants' | 'sheetPricing'>, variantId?: string | null, quantity?: number | null) {
+  const sp = pkg.sheetPricing
+  if (sp && variantId === PER_SHEET_ID) {
+    if (!validCustomQuantity(sp, quantity)) return { priceCents: pkg.priceCents, variant: null }
+    const variant = perSheetVariant(sp, quantity)
+    return { priceCents: variant.priceCents, variant }
+  }
   if (!pkg.variants.length) return { priceCents: pkg.priceCents, variant: null }
-  const variant = pkg.variants.find((v) => v.id === variantId) ?? null
+  const found = pkg.variants.find((v) => v.id === variantId) ?? null
+  const variant = found && sp && found.quantity ? { ...found, sheets: sheetsFor(found.quantity, sp.cardsPerSheet) } : found
   return { priceCents: variant?.priceCents ?? pkg.priceCents, variant }
 }
 
-/** Arquivos que o cliente pode enviar no checkout (logo). */
+/** O pacote exige quantidade/opção na compra? */
+export const needsQuantity = (pkg: Pick<Package, 'variants' | 'sheetPricing'>) => pkg.variants.length > 0 || !!pkg.sheetPricing
+
+/** Arquivos que o cliente pode enviar no checkout (o design a imprimir). */
 export const CUSTOMER_UPLOAD_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml', 'application/pdf']
 export const MAX_CUSTOMER_UPLOAD_BYTES = 15 * 1024 * 1024
 export const MAX_CUSTOMER_UPLOADS = 5
@@ -152,8 +190,10 @@ export const checkoutSchema = z.object({
   shippingAddress: shippingAddressSchema.optional(),
   /** Serviço escolhido entre as opções da cotação; o preço é recalculado no servidor. */
   shippingServiceId: z.number().int().optional(),
-  /** Opção de quantidade/preço escolhida (pacotes com opções). */
+  /** Opção de quantidade/preço escolhida (pacotes com opções), ou "por-folha" com `quantity`. */
   variantId: z.string().max(40).optional(),
+  /** Quantidade livre (cobrança por folha). */
+  quantity: z.number().int().optional(),
   /** Arquivos enviados pelo cliente (ex.: logo), com o token recebido no upload. */
   uploads: z
     .array(z.object({ id: z.string().max(40), token: z.string().max(100) }))

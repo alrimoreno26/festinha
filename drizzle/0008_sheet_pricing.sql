@@ -1,0 +1,1 @@
+ALTER TABLE "packages" ADD COLUMN "sheet_pricing" jsonb;

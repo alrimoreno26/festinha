@@ -18,7 +18,7 @@ import {
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
-import type { Customization, PackageItem, PackageVariant, ShippingAddress, ShippingBox, ShippingChoice } from '@/lib/types'
+import type { Customization, PackageItem, PackageVariant, SheetPricing, ShippingAddress, ShippingBox, ShippingChoice } from '@/lib/types'
 
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 const tstz = (name: string) => timestamp(name, { withTimezone: true })
@@ -133,6 +133,8 @@ export const packages = pgTable(
     shippingBox: jsonb('shipping_box').$type<ShippingBox>(),
     line: productLineEnum('line').notNull().default('festas'),
     variants: jsonb('variants').$type<PackageVariant[]>().notNull().default([]),
+    /** Impressão de cartões: cobrança por folha abaixo do mínimo das opções. */
+    sheetPricing: jsonb('sheet_pricing').$type<SheetPricing>(),
     createdAt: createdAt(),
     updatedAt: tstz('updated_at').notNull().defaultNow(),
   },

@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react'
 const links = [
   { label: 'Início', href: '/#hero' },
   { label: 'Kits', href: '/pacotes' },
-  { label: 'Para empresas', href: '/pacotes?linha=empresas' },
+  { label: 'Cartões', href: '/pacotes?linha=empresas' },
   { label: 'Como funciona', href: '/#como-funciona' },
   { label: 'Quem somos', href: '/#quem-somos' },
   { label: 'Contato', href: '/#contato' },

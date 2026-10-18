@@ -60,12 +60,29 @@ async function validate(db: Db, input: PackageInput, id?: string): Promise<Packa
   }
   // Opções de quantidade/preço: cada uma com nome e preço; o preço "a partir de" passa a ser o menor deles.
   const variants = input.variants
-    .map((v) => ({ id: v.id?.trim() || newId('opt'), label: v.label.trim(), priceCents: v.priceCents }))
+    .map((v) => ({
+      id: v.id?.trim() || newId('opt'),
+      label: v.label.trim(),
+      priceCents: v.priceCents,
+      ...(v.quantity ? { quantity: v.quantity } : {}),
+    }))
     .filter((v) => v.label)
   if (variants.some((v) => !Number.isInteger(v.priceCents) || v.priceCents < 100)) errors.variants = 'Cada opção precisa de um preço de pelo menos R$ 1,00.'
   else if (new Set(variants.map((v) => v.label.toLowerCase())).size !== variants.length) errors.variants = 'Há opções com o mesmo nome.'
-  const priceCents = variants.length ? Math.min(...variants.map((v) => v.priceCents)) : input.priceCents
-  if (!variants.length && (!Number.isInteger(priceCents) || priceCents < 100)) errors.priceCents = 'O preço mínimo é R$ 1,00.'
+
+  // Impressão por folha (cartões): quantidade livre abaixo do mínimo; as opções começam no mínimo.
+  const sp = input.kind === 'printed' ? input.sheetPricing : null
+  if (sp) {
+    if (!Number.isInteger(sp.cardsPerSheet) || sp.cardsPerSheet < 1 || sp.cardsPerSheet > 100) errors.sheetPricing = 'Informe quantos cartões cabem numa folha (1 a 100).'
+    else if (!Number.isInteger(sp.sheetPriceCents) || sp.sheetPriceCents < 100) errors.sheetPricing = 'O preço por folha precisa ser de pelo menos R$ 1,00.'
+    else if (!Number.isInteger(sp.minUnitsForOptions) || sp.minUnitsForOptions < 2) errors.sheetPricing = 'Informe a partir de quantas unidades valem as opções.'
+    else if (!errors.variants && variants.some((v) => !v.quantity || v.quantity < sp.minUnitsForOptions))
+      errors.variants = `Informe a quantidade de cada opção (a partir de ${sp.minUnitsForOptions} unidades).`
+  }
+  const sheetPricing = sp && !errors.sheetPricing ? { cardsPerSheet: sp.cardsPerSheet, sheetPriceCents: sp.sheetPriceCents, minUnitsForOptions: sp.minUnitsForOptions } : null
+  const candidates = [...variants.map((v) => v.priceCents), ...(sheetPricing ? [sheetPricing.sheetPriceCents] : [])]
+  const priceCents = candidates.length ? Math.min(...candidates) : input.priceCents
+  if (!candidates.length && (!Number.isInteger(priceCents) || priceCents < 100)) errors.priceCents = 'O preço mínimo é R$ 1,00.'
   const line = input.line === 'empresas' ? 'empresas' : 'festas'
   const kind = input.kind
   if (!['digital', 'custom_digital', 'printed'].includes(kind)) errors.kind = 'Tipo de pacote inválido.'
@@ -94,7 +111,7 @@ async function validate(db: Db, input: PackageInput, id?: string): Promise<Packa
     if (found.length !== fileIds.length) errors.fileIds = 'Alguns arquivos não existem mais. Revise a lista.'
   }
   if (Object.keys(errors).length) throw new ServiceError('VALIDATION', 'Revise os campos destacados.', errors)
-  return { ...input, title, slug, description: input.description.trim(), fileIds, accessDays, items, customizationLevel: customizationFor(kind, input.customizationLevel), shippingBox, variants, priceCents, line }
+  return { ...input, title, slug, description: input.description.trim(), fileIds, accessDays, items, customizationLevel: customizationFor(kind, input.customizationLevel), shippingBox, variants, priceCents, line, sheetPricing }
 }
 
 async function writeFiles(db: Db, packageId: string, fileIds: string[]) {

@@ -8,7 +8,7 @@
 // As mensagens passam por uma fila (telegram_outbox), como os emails: se o Telegram falhar, tentamos de novo depois.
 
 import { addressLines } from '@/lib/address'
-import { DELIVERY_LABEL, KIND_LABEL } from '@/lib/labels'
+import { DELIVERY_LABEL, KIND_LABEL, variantText } from '@/lib/labels'
 import type { Customization, DeliveryMethod, PackageKind, PackageVariant, PaymentMethod, ShippingAddress, ShippingChoice } from '@/lib/types'
 import { and, eq, isNull, lt, lte, sql } from 'drizzle-orm'
 import * as t from './db/schema'
@@ -101,7 +101,7 @@ export function orderPaidMessage(o: OrderNotice) {
   const lines = [
     `🎉 <b>Novo pedido pago!</b>`,
     '',
-    `📦 <b>${esc(o.packageTitle)}</b>${o.variant ? ` · ${esc(o.variant.label)}` : ''}`,
+    `📦 <b>${esc(o.packageTitle)}</b>${o.variant ? ` · ${esc(variantText(o.variant))}` : ''}`,
     `🏷️ ${KIND_LABEL[o.packageKind]}`,
     `💰 <b>${brl(o.amountCents)}</b> · ${o.method === 'pix' ? 'Pix' : 'Cartão'}${o.shipping ? ` <i>(frete ${brl(o.shipping.priceCents)} incluso)</i>` : ''}`,
     '',

@@ -46,6 +46,7 @@ const printed = (over: Partial<PackageInput> = {}): PackageInput => ({
   shippingBox: { weightGrams: 300, heightCm: 5, widthCm: 20, lengthCm: 25 },
   line: 'festas',
   variants: [],
+  sheetPricing: null,
   ...over,
 })
 

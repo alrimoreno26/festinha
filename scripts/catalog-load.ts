@@ -15,7 +15,8 @@ import * as packages from '../lib/server/domain/packages'
 import { toUser } from '../lib/server/mappers'
 
 const pkg = (
-  p: Omit<PackageInput, 'coverUrl' | 'accessDays' | 'fileIds' | 'customizationLevel' | 'shippingBox' | 'line' | 'variants'> & Partial<PackageInput>,
+  p: Omit<PackageInput, 'coverUrl' | 'accessDays' | 'fileIds' | 'customizationLevel' | 'shippingBox' | 'line' | 'variants' | 'sheetPricing'> &
+    Partial<PackageInput>,
 ): PackageInput => ({
   coverUrl: null,
   accessDays: null,
@@ -24,6 +25,7 @@ const pkg = (
   shippingBox: null,
   line: 'festas',
   variants: [],
+  sheetPricing: null,
   ...p,
 })
 
@@ -37,12 +39,13 @@ const BOX = {
   cartoes: { weightGrams: 250, heightCm: 4, widthCm: 11, lengthCm: 16 },
 }
 
-// Opções de quantidade dos cartões para empresas. PREÇOS DE EXEMPLO (R$ 1,00): defina os reais no backoffice
-// antes de mostrar no catálogo (os cartões entram ocultos).
+// Impressão de cartões: 9 por folha A4; abaixo de 50 unidades, R$ 6,00 por folha.
+// A partir de 50, valem as opções abaixo. PREÇOS SUGERIDOS (o mesmo valor por folha): ajuste no backoffice.
+const CARD_SHEETS = { cardsPerSheet: 9, sheetPriceCents: 600, minUnitsForOptions: 50 }
 const CARD_OPTIONS = [
-  { id: 'opt_50', label: '50 unidades', priceCents: 100 },
-  { id: 'opt_100', label: '100 unidades', priceCents: 100 },
-  { id: 'opt_200', label: '200 unidades', priceCents: 100 },
+  { id: 'opt_50', label: '50 cartões', quantity: 50, priceCents: 3600 },
+  { id: 'opt_100', label: '100 cartões', quantity: 100, priceCents: 7200 },
+  { id: 'opt_200', label: '200 cartões', quantity: 200, priceCents: 13800 },
 ]
 
 const CATALOG: PackageInput[] = [
@@ -99,36 +102,22 @@ const CATALOG: PackageInput[] = [
       'Dê um toque especial às suas lembrancinhas com tags personalizadas com o tema, nome e cores da sua festa! Perfeitas para decorar embalagens, sacolinhas e presentinhos.',
     items: [{ name: 'Tag de papel personalizada', quantity: 40 }],
   }),
-  // ---- Para empresas (ocultos até definir os preços) ----
+  // ---- Para empresas: impressão do design do cliente (oculto até conferir os preços) ----
   pkg({
-    title: 'Cartão de garantia',
-    slug: 'cartao-de-garantia',
+    title: 'Impressão de cartões de apresentação',
+    slug: 'impressao-de-cartoes',
     kind: 'printed',
     line: 'empresas',
     customizationLevel: 'business',
-    priceCents: 100,
+    priceCents: 600,
     variants: CARD_OPTIONS,
+    sheetPricing: CARD_SHEETS,
     active: false,
-    coverUrl: '/galeria/cartao-garantia.webp',
+    coverUrl: '/galeria/impressao-de-cartoes.webp',
     shippingBox: BOX.cartoes,
     description:
-      'Cartão de garantia com a identidade da sua marca: logo e frase na frente; no verso, campos para produto, material, data da compra e prazo, com a informação da garantia legal (CDC). Impresso frente e verso, pronto para acompanhar cada venda.',
-    items: [{ name: 'Cartão de garantia frente e verso (aprox. 5 x 8 cm)', quantity: 1 }],
-  }),
-  pkg({
-    title: 'Cartão de cuidados com joias',
-    slug: 'cartao-de-cuidados-com-joias',
-    kind: 'printed',
-    line: 'empresas',
-    customizationLevel: 'business',
-    priceCents: 100,
-    variants: CARD_OPTIONS,
-    active: false,
-    coverUrl: '/galeria/cartao-cuidados-joias.webp',
-    shippingBox: BOX.cartoes,
-    description:
-      'Cartão com dicas para o seu cliente conservar as peças por mais tempo (água, produtos químicos, manuseio, limpeza e armazenamento), com o logo e as cores da sua marca. Impresso em papel fotográfico.',
-    items: [{ name: 'Cartão de cuidados (aprox. 5 x 7,5 cm)', quantity: 1 }],
+      'Você envia o design pronto do seu cartão (de visita, de agradecimento, de garantia, de cuidados…) e nós imprimimos com qualidade. Em cada folha A4 cabem 9 cartões. Até 49 cartões, você paga por folha; a partir de 50, escolha um dos pacotes com preço especial.',
+    items: [{ name: 'Cartões impressos com o seu design (9 por folha A4)', quantity: 1 }],
   }),
   // ---- Digitais ----
   pkg({

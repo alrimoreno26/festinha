@@ -64,7 +64,7 @@ function Pacotes() {
         <h1 className="text-4xl md:text-6xl font-bold text-brand-ink">
           {business ? (
             <>
-              Papelaria para <span className="text-rainbow">empresas</span>
+              Impressão de <span className="text-rainbow">cartões</span>
             </>
           ) : (
             <>
@@ -74,7 +74,7 @@ function Pacotes() {
         </h1>
         <p className="mt-4 text-[17px]">
           {business
-            ? 'Cartões de garantia, de cuidados, de agradecimento, tags e etiquetas com a identidade da sua marca. Você envia o logo, nós criamos e imprimimos.'
+            ? 'Impressão de cartões de apresentação com o seu design: 9 cartões por folha A4, R$ 6,00 por folha até 49 unidades e pacotes especiais a partir de 50.'
             : 'Arquivos digitais para imprimir em casa, artes personalizadas com o nome da criança e kits impressos prontos para a sua festa. Pague com Pix ou cartão.'}
         </p>
         {lines.size > 1 && (

@@ -3,7 +3,18 @@
 // a confirmação chega pelo webhook (e pela consulta na volta para o site).
 // Sem Mercado Pago: a página /simulador-mp faz o papel do MP.
 
-import { checkoutSchema, isBusiness, needsCustomization, needsName, priceFor, zodDetails, type CheckoutInput, type PublicOrder } from '@/lib/contracts'
+import {
+  checkoutSchema,
+  isBusiness,
+  needsCustomization,
+  needsName,
+  needsQuantity,
+  PER_SHEET_ID,
+  priceFor,
+  zodDetails,
+  type CheckoutInput,
+  type PublicOrder,
+} from '@/lib/contracts'
 import { ServiceError } from '@/lib/services/errors'
 import type { Customization, DeliveryMethod, PackageVariant, PaymentMethod, ShippingAddress, ShippingChoice } from '@/lib/types'
 import { and, eq, isNotNull, lte } from 'drizzle-orm'
@@ -87,20 +98,25 @@ type PackageRow = typeof t.packages.$inferSelect
 async function orderExtras(
   db: Db,
   pkg: PackageRow,
-  input: Pick<CheckoutInput, 'customization' | 'deliveryMethod' | 'shippingAddress' | 'shippingServiceId' | 'variantId'>,
+  input: Pick<CheckoutInput, 'customization' | 'deliveryMethod' | 'shippingAddress' | 'shippingServiceId' | 'variantId' | 'quantity' | 'uploads'>,
   quoter: ShippingQuoter,
 ) {
   const errors: Record<string, string> = {}
 
   // Opção de quantidade/preço (quando o pacote tem opções).
-  const { priceCents, variant } = priceFor(pkg, input.variantId)
-  if (pkg.variants.length && !variant) errors.variantId = 'Escolha a quantidade.'
+  const { priceCents, variant } = priceFor(pkg, input.variantId, input.quantity)
+  if (needsQuantity(pkg) && !variant)
+    errors.variantId =
+      pkg.sheetPricing && input.variantId === PER_SHEET_ID
+        ? `Informe uma quantidade de 1 a ${pkg.sheetPricing.minUnitsForOptions - 1} cartões.`
+        : 'Escolha a quantidade.'
 
   let customization: Customization | null = null
   if (needsCustomization(pkg)) {
     const c = { childName: '', age: '', theme: '', colors: '', notes: '', businessName: '', cardText: '', ...input.customization }
     if (isBusiness(pkg)) {
-      if (!c.businessName.trim()) errors.businessName = 'Informe o nome da empresa ou marca.'
+      // Impressão do design do cliente: o arquivo é obrigatório.
+      if (!input.uploads?.length) errors.uploads = 'Envie o arquivo do seu design.'
     } else {
       if (needsName(pkg) && !c.childName.trim()) errors.childName = 'Informe o nome que vai na arte.'
       if (!c.theme.trim()) errors.theme = 'Informe o tema da festa.'

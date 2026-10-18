@@ -30,6 +30,7 @@ const base = (over: Partial<PackageInput>): PackageInput => ({
   shippingBox: null,
   line: 'festas',
   variants: [],
+  sheetPricing: null,
   ...over,
 })
 

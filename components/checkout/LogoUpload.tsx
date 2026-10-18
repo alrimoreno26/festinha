@@ -17,7 +17,18 @@ export interface UploadedFile {
   size: number
 }
 
-export function LogoUpload({ value, onChange, error }: { value: UploadedFile[]; onChange: (files: UploadedFile[]) => void; error?: string }) {
+export function LogoUpload({
+  value,
+  onChange,
+  error,
+  required,
+}: {
+  value: UploadedFile[]
+  onChange: (files: UploadedFile[]) => void
+  error?: string
+  /** Impressão do design do cliente: o arquivo é obrigatório. */
+  required?: boolean
+}) {
   const input = useRef<HTMLInputElement>(null)
   const [sending, setSending] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
@@ -43,7 +54,7 @@ export function LogoUpload({ value, onChange, error }: { value: UploadedFile[]; 
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-gray-700">Logo e referências (opcional)</p>
+      <p className="text-sm font-medium text-gray-700">{required ? 'Arquivo do design (frente e verso, se houver)' : 'Logo e referências (opcional)'}</p>
       {value.length > 0 && (
         <ul className="space-y-1.5">
           {value.map((f) => (
@@ -74,12 +85,16 @@ export function LogoUpload({ value, onChange, error }: { value: UploadedFile[]; 
             onClick={() => input.current?.click()}
             className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-lilac bg-brand-blush/50 px-4 py-3 text-sm font-semibold text-brand-grape hover:bg-brand-blush"
           >
-            <ImagePlus size={18} /> {value.length ? 'Enviar outro arquivo' : 'Enviar o logo'}
+            <ImagePlus size={18} /> {value.length ? 'Enviar outro arquivo' : required ? 'Enviar o design' : 'Enviar o logo'}
           </button>
         )
       )}
       <input ref={input} type="file" accept={CUSTOMER_UPLOAD_TYPES.join(',')} multiple className="hidden" onChange={(e) => send(e.target.files)} />
-      <p className="text-xs text-gray-500">PNG, JPG, SVG ou PDF, até 15 MB. Se preferir, mande depois pelo WhatsApp.</p>
+      <p className="text-xs text-gray-500">
+        {required
+          ? 'PDF ou imagem em alta resolução (300 dpi), até 15 MB. Se tiver frente e verso, envie os dois.'
+          : 'PNG, JPG, SVG ou PDF, até 15 MB. Se preferir, mande depois pelo WhatsApp.'}
+      </p>
       {(failure || error) && <p className="text-sm text-red-600">{failure ?? error}</p>}
     </div>
   )

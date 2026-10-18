@@ -15,9 +15,13 @@ export const packageInputSchema = z.object({
   customizationLevel: z.enum(['none', 'theme', 'full', 'business']).default('none'),
   line: z.enum(['festas', 'empresas']).default('festas'),
   variants: z
-    .array(z.object({ id: z.string().max(40), label: z.string().max(80), priceCents: z.number().int() }))
+    .array(z.object({ id: z.string().max(40), label: z.string().max(80), priceCents: z.number().int(), quantity: z.number().int().optional() }))
     .max(20)
     .default([]),
+  sheetPricing: z
+    .object({ cardsPerSheet: z.number().int(), sheetPriceCents: z.number().int(), minUnitsForOptions: z.number().int() })
+    .nullable()
+    .default(null),
   shippingBox: z
     .object({ weightGrams: z.number(), heightCm: z.number(), widthCm: z.number(), lengthCm: z.number() })
     .nullable()

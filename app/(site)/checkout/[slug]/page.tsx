@@ -10,7 +10,8 @@ import { daysLabel, emptyDelivery, selectedOption, ShippingSection, type Deliver
 import { Button, ButtonLink, Card, EmptyState, ErrorState, Field, Input, KindBadge, PageLoader, Textarea } from '@/components/ui'
 import { addressLines } from '@/lib/address'
 import { cn } from '@/lib/cn'
-import { isBusiness, needsCustomization, needsName, priceFor, type PublicPackage } from '@/lib/contracts'
+import { isBusiness, needsCustomization, needsName, needsQuantity, PER_SHEET_ID, priceFor, type PublicPackage } from '@/lib/contracts'
+import { QuantityPicker } from '@/components/catalog/QuantityPicker'
 import { formatBRL, formatPhoneBR } from '@/lib/format'
 import { useSession } from '@/lib/hooks/useSession'
 import { DELIVERY_LABEL } from '@/lib/labels'
@@ -58,7 +59,7 @@ const FIELD_STEP: Record<string, StepId> = {
 }
 
 const stepsFor = (pkg: PublicPackage): StepId[] => [
-  ...(pkg.variants.length ? (['opcao'] as const) : []),
+  ...(needsQuantity(pkg) ? (['opcao'] as const) : []),
   'dados',
   ...(needsCustomization(pkg) ? (['personalizacao'] as const) : []),
   ...(pkg.kind === 'printed' ? (['entrega'] as const) : []),
@@ -68,9 +69,19 @@ const stepsFor = (pkg: PublicPackage): StepId[] => [
 type Form = { name: string; email: string; phone: string }
 
 /** Mesmas regras do servidor, para avisar antes de avançar. */
-function validateStep(step: StepId, pkg: PublicPackage, form: Form, custom: Customization, delivery: DeliveryState, variantId: string | null) {
+function validateStep(
+  step: StepId,
+  pkg: PublicPackage,
+  form: Form,
+  custom: Customization,
+  delivery: DeliveryState,
+  variantId: string | null,
+  quantity: number | null,
+  uploadsCount: number,
+) {
   const e: Record<string, string> = {}
-  if (step === 'opcao' && !pkg.variants.some((v) => v.id === variantId)) e.variantId = 'Escolha a quantidade.'
+  if (step === 'opcao' && !priceFor(pkg, variantId, quantity).variant)
+    e.variantId = variantId === PER_SHEET_ID && pkg.sheetPricing ? `Informe de 1 a ${pkg.sheetPricing.minUnitsForOptions - 1} cartões.` : 'Escolha a quantidade.'
   if (step === 'dados') {
     if (form.name.trim().length < 3) e.name = 'Informe seu nome completo.'
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) e.email = 'Informe um email válido.'
@@ -78,7 +89,7 @@ function validateStep(step: StepId, pkg: PublicPackage, form: Form, custom: Cust
   }
   if (step === 'personalizacao') {
     if (isBusiness(pkg)) {
-      if (!custom.businessName.trim()) e.businessName = 'Informe o nome da empresa ou marca.'
+      if (!uploadsCount) e.uploads = 'Envie o arquivo do seu design.'
     } else {
       if (needsName(pkg) && !custom.childName.trim()) e.childName = 'Informe o nome que vai na arte.'
       if (!custom.theme.trim()) e.theme = 'Informe o tema da festa.'
@@ -102,7 +113,7 @@ function validateStep(step: StepId, pkg: PublicPackage, form: Form, custom: Cust
   return e
 }
 
-function Stepper({ steps, current, onGo }: { steps: StepId[]; current: number; onGo: (i: number) => void }) {
+function Stepper({ steps, current, onGo, label }: { steps: StepId[]; current: number; onGo: (i: number) => void; label: (s: StepId) => string }) {
   return (
     <ol className="flex items-center gap-1 sm:gap-2" aria-label="Etapas da compra">
       {steps.map((s, i) => {
@@ -133,7 +144,7 @@ function Stepper({ steps, current, onGo }: { steps: StepId[]; current: number; o
                   active ? 'font-semibold text-brand-ink' : done ? 'text-gray-700' : 'text-gray-400',
                 )}
               >
-                {STEP_LABEL[s]}
+                {label(s)}
               </span>
             </button>
             {i < steps.length - 1 && <span aria-hidden className={cn('h-0.5 flex-1 rounded-full', done ? 'bg-brand-mint' : 'bg-gray-200')} />}
@@ -169,6 +180,7 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
   const [form, setForm] = useState<Form>({ name: '', email: '', phone: '' })
   const [custom, setCustom] = useState<Customization>({ childName: '', age: '', theme: '', colors: '', notes: '', businessName: '', cardText: '' })
   const [variantId, setVariantId] = useState<string | null>(null)
+  const [quantity, setQuantity] = useState<number | null>(null)
   const [uploads, setUploads] = useState<UploadedFile[]>([])
   const [delivery, setDelivery] = useState<DeliveryState>(emptyDelivery)
   const [accepted, setAccepted] = useState(false)
@@ -177,12 +189,18 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
   const [localErrors, setLocalErrors] = useState<Record<string, string>>({})
   const topRef = useRef<HTMLDivElement>(null)
 
-  // Opção escolhida na página do kit (?opcao=…); sem ela, a primeira.
+  // Opção escolhida na página do kit (?opcao=…&qtd=…); sem ela, a primeira (ou a quantidade avulsa).
   useEffect(() => {
     const pkg = pkgQuery.data
-    if (!pkg?.variants.length || variantId) return
-    const fromUrl = new URLSearchParams(window.location.search).get('opcao')
-    setVariantId(pkg.variants.find((v) => v.id === fromUrl)?.id ?? pkg.variants[0].id)
+    if (!pkg || !needsQuantity(pkg) || variantId) return
+    const params = new URLSearchParams(window.location.search)
+    const fromUrl = params.get('opcao')
+    if (pkg.sheetPricing && (fromUrl === PER_SHEET_ID || !pkg.variants.length)) {
+      setVariantId(PER_SHEET_ID)
+      setQuantity(Number(params.get('qtd')) || pkg.sheetPricing.cardsPerSheet)
+      return
+    }
+    setVariantId(pkg.variants.find((v) => v.id === fromUrl)?.id ?? pkg.variants[0]?.id ?? null)
   }, [pkgQuery.data, variantId])
 
   // Cliente logado: preenche com os dados da conta.
@@ -192,6 +210,7 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
   }, [user])
 
   const steps = pkgQuery.data ? stepsFor(pkgQuery.data) : (['dados', 'revisao'] as StepId[])
+  const stepLabel = (s: StepId) => (s === 'personalizacao' && pkgQuery.data && isBusiness(pkgQuery.data) ? 'Design' : STEP_LABEL[s])
   const step = steps[Math.min(stepIndex, steps.length - 1)]
 
   const goTo = (i: number) => {
@@ -211,7 +230,8 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
         packageSlug: params.slug,
         ...form,
         ...(needsCustomization(pkg) && { customization: custom }),
-        ...(pkg.variants.length && variantId && { variantId }),
+        ...(needsQuantity(pkg) && variantId && { variantId }),
+        ...(variantId === PER_SHEET_ID && quantity && { quantity }),
         ...(uploads.length && { uploads: uploads.map(({ id, token }) => ({ id, token })) }),
         ...(pkg.kind === 'printed' && {
           deliveryMethod: delivery.method ?? undefined,
@@ -242,7 +262,7 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
       if (accepted) order.mutate()
       return
     }
-    const errors = validateStep(step, pkg, form, custom, delivery, variantId)
+    const errors = validateStep(step, pkg, form, custom, delivery, variantId, quantity, uploads.length)
     setLocalErrors(errors)
     if (!Object.keys(errors).length) goTo(stepIndex + 1)
   }
@@ -270,7 +290,7 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
   }
 
   const pkg = pkgQuery.data
-  const { priceCents: itemPrice, variant } = priceFor(pkg, variantId)
+  const { priceCents: itemPrice, variant } = priceFor(pkg, variantId, quantity)
   const total = itemPrice + (shippingChoice?.priceCents ?? 0)
   const editStep = (s: StepId) => () => goTo(steps.indexOf(s))
 
@@ -282,7 +302,7 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
           <ChevronLeft size={16} /> Voltar ao kit
         </Link>
         <p className="text-xs text-gray-500 sm:hidden">
-          Etapa {stepIndex + 1} de {steps.length} · <span className="font-semibold text-brand-ink">{STEP_LABEL[step]}</span>
+          Etapa {stepIndex + 1} de {steps.length} · <span className="font-semibold text-brand-ink">{stepLabel(step)}</span>
         </p>
       </div>
 
@@ -300,29 +320,21 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
 
       <div className="mt-4 grid gap-6 md:mt-6 md:grid-cols-[1fr_320px] md:items-start">
         <Card className="p-5 sm:p-6">
-          <Stepper steps={steps} current={stepIndex} onGo={goTo} />
+          <Stepper steps={steps} current={stepIndex} onGo={goTo} label={stepLabel} />
 
           <form onSubmit={next} className="mt-6 space-y-4" noValidate>
-            <h1 className="text-xl font-bold text-brand-ink sm:text-2xl">{step === 'revisao' ? 'Revise e pague' : STEP_LABEL[step]}</h1>
+            <h1 className="text-xl font-bold text-brand-ink sm:text-2xl">{step === 'revisao' ? 'Revise e pague' : stepLabel(step)}</h1>
 
             {step === 'opcao' && (
-              <fieldset className="space-y-2">
-                <legend className="sr-only">Quantidade</legend>
-                {pkg.variants.map((v) => (
-                  <label
-                    key={v.id}
-                    className={cn(
-                      'flex cursor-pointer items-center gap-3 rounded-2xl border-2 p-4 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-grape',
-                      variantId === v.id ? 'border-brand-rose bg-brand-blush' : 'border-gray-200 hover:border-brand-pink',
-                    )}
-                  >
-                    <input type="radio" name="variant" checked={variantId === v.id} onChange={() => setVariantId(v.id)} className="sr-only" />
-                    <span className="flex-1 font-semibold text-gray-900">{v.label}</span>
-                    <span className="font-display text-lg font-bold tabular-nums text-brand-rose">{formatBRL(v.priceCents)}</span>
-                  </label>
-                ))}
-                {fieldErrors.variantId && <p className="text-sm text-red-600">{fieldErrors.variantId}</p>}
-              </fieldset>
+              <QuantityPicker
+                pkg={pkg}
+                value={{ variantId, quantity }}
+                onChange={(v) => {
+                  setVariantId(v.variantId)
+                  setQuantity(v.quantity)
+                }}
+                error={fieldErrors.variantId}
+              />
             )}
 
             {step === 'dados' && (
@@ -349,22 +361,18 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
 
             {step === 'personalizacao' && isBusiness(pkg) && (
               <>
-                <p className="text-sm text-gray-500">Conte como devem ficar os cartões da sua marca. Montamos a arte e enviamos para você aprovar. 💕</p>
+                <p className="text-sm text-gray-500">
+                  Envie o design pronto do seu cartão. Imprimimos exatamente o arquivo enviado: confira textos, cores e medidas antes. 💕
+                </p>
+                <LogoUpload value={uploads} onChange={setUploads} error={fieldErrors.uploads} required />
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Nome da empresa ou marca" error={fieldErrors.businessName}>
-                    <Input value={custom.businessName} onChange={setC('businessName')} placeholder="Meu Pequeno Universo" maxLength={120} autoFocus />
+                  <Field label="Nome da empresa ou marca (opcional)" error={fieldErrors.businessName}>
+                    <Input value={custom.businessName} onChange={setC('businessName')} placeholder="Para identificarmos o pedido" maxLength={120} />
                   </Field>
-                  <Field label="Cores (opcional)" error={fieldErrors.colors}>
-                    <Input value={custom.colors} onChange={setC('colors')} placeholder="Rosa, dourado…" maxLength={200} />
+                  <Field label="Observações (opcional)" error={fieldErrors.notes}>
+                    <Input value={custom.notes} onChange={setC('notes')} placeholder="Frente e verso, papel, prazo…" maxLength={2000} />
                   </Field>
                 </div>
-                <Field label="Textos do cartão (opcional)" hint="Instagram, WhatsApp, frases, informações de garantia…" error={fieldErrors.cardText}>
-                  <Textarea value={custom.cardText} onChange={setC('cardText')} rows={2} maxLength={2000} />
-                </Field>
-                <LogoUpload value={uploads} onChange={setUploads} error={fieldErrors.uploads} />
-                <Field label="Observações (opcional)" error={fieldErrors.notes}>
-                  <Input value={custom.notes} onChange={setC('notes')} placeholder="Frente e verso, acabamento, prazo…" maxLength={2000} />
-                </Field>
               </>
             )}
 
@@ -398,7 +406,7 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
             )}
 
             {step === 'entrega' && (
-              <ShippingSection packageSlug={pkg.slug} variantId={variantId} shippable={pkg.shippable} value={delivery} onChange={setDelivery} errors={fieldErrors} />
+              <ShippingSection packageSlug={pkg.slug} variantId={variantId} quantity={quantity} shippable={pkg.shippable} value={delivery} onChange={setDelivery} errors={fieldErrors} />
             )}
 
             {step === 'revisao' && (
@@ -418,11 +426,14 @@ export default function CheckoutPage({ params }: { params: { slug: string } }) {
                     </p>
                   </ReviewBlock>
                   {isBusiness(pkg) && (
-                    <ReviewBlock title="Personalização" onEdit={editStep('personalizacao')}>
-                      <p className="font-medium">{custom.businessName}</p>
-                      {custom.colors && <p className="text-gray-600">Cores: {custom.colors}</p>}
-                      {custom.cardText && <p className="truncate text-gray-600">{custom.cardText}</p>}
-                      <p className="text-gray-500">{uploads.length ? `${uploads.length} arquivo(s) enviado(s)` : 'Sem logo (você pode mandar pelo WhatsApp)'}</p>
+                    <ReviewBlock title="Design" onEdit={editStep('personalizacao')}>
+                      {uploads.map((u) => (
+                        <p key={u.id} className="truncate font-medium">
+                          {u.name}
+                        </p>
+                      ))}
+                      {custom.businessName && <p className="text-gray-600">{custom.businessName}</p>}
+                      {custom.notes && <p className="truncate text-gray-600">{custom.notes}</p>}
                     </ReviewBlock>
                   )}
                   {needsCustomization(pkg) && !isBusiness(pkg) && (

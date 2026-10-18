@@ -16,6 +16,7 @@ import {
   useToast,
 } from '@/components/ui'
 import { addressLines, trackingUrl } from '@/lib/address'
+import { variantText } from '@/lib/labels'
 import { expiryText } from '@/lib/entitlements'
 import { formatBRL, formatDateTime } from '@/lib/format'
 import { devToolsEnabled } from '@/lib/dev/settings'
@@ -114,7 +115,7 @@ export default function PedidoPage({ params }: { params: { id: string } }) {
                 <Row label="Valor">
                   <span className="font-semibold tabular-nums">{formatBRL(order.amountCents)}</span>
                 </Row>
-                {order.variant && <Row label="Opção">{order.variant.label}</Row>}
+                {order.variant && <Row label="Quantidade">{variantText(order.variant)}</Row>}
                 <Row label="Método">{PAYMENT_METHOD[order.method]}</Row>
                 <Row label="Pago em">{order.paidAt ? formatDateTime(order.paidAt) : '—'}</Row>
                 <Row label="Processador">{payment.provider === 'mercadopago' ? 'Mercado Pago' : 'Simulador'}</Row>

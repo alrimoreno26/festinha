@@ -274,10 +274,10 @@ export function Contact() {
 }
 
 const businessItems = [
-  { icon: '🛡️', title: 'Cartão de garantia', desc: 'Produto, material, data da compra e prazo, com a sua marca na frente.' },
-  { icon: '💎', title: 'Cartão de cuidados', desc: 'Dicas para o cliente conservar a peça: ideal para joias, semijoias e acessórios.' },
-  { icon: '💌', title: 'Cartão de agradecimento', desc: 'Aquele carinho que acompanha cada pedido e faz o cliente voltar.' },
-  { icon: '🏷️', title: 'Tags e etiquetas', desc: 'Para embalagens, sacolinhas e produtos, com o seu logo e as suas cores.' },
+  { icon: '📤', title: 'Envie o seu design', desc: 'Arquivo pronto em PDF ou imagem em alta resolução, frente e verso.' },
+  { icon: '🧮', title: '9 cartões por folha', desc: 'Em cada folha A4 cabem 9 cartões. Até 49 unidades, R$ 6,00 por folha.' },
+  { icon: '🖨️', title: 'Imprimimos com capricho', desc: 'Cartões de visita, de agradecimento, de garantia, de cuidados e mais.' },
+  { icon: '📦', title: 'Retire ou receba', desc: 'Retirada no local ou envio para todo o Brasil, com rastreio.' },
 ]
 
 /** Linha "Para empresas": papelaria com a identidade de outros negócios (cartões, tags, etiquetas). */
@@ -285,8 +285,8 @@ export function Business() {
   return (
     <section id="empresas" className="relative py-14 md:py-20">
       <div className="max-w-6xl mx-auto px-4">
-        <SectionTitle subtitle="Cartões e papelaria com a identidade da sua marca: você envia o logo e os textos, nós criamos a arte, você aprova e imprimimos com capricho.">
-          Para o seu negócio
+        <SectionTitle subtitle="Impressão de cartões de apresentação para o seu negócio: você envia o design pronto e nós imprimimos. A partir de 50 cartões, pacotes com preço especial.">
+          Impressão de cartões
         </SectionTitle>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {businessItems.map((b, i) => (
@@ -301,9 +301,9 @@ export function Business() {
         </div>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link href="/pacotes?linha=empresas" className={buttonClasses('primary', 'lg')}>
-            Ver cartões para empresas
+            Imprimir meus cartões
           </Link>
-          <a href={whatsappUrl('Olá! Quero um orçamento de cartões para a minha empresa.')} target="_blank" rel="noreferrer" className={buttonClasses('outline', 'lg')}>
+          <a href={whatsappUrl('Olá! Quero imprimir cartões de apresentação.')} target="_blank" rel="noreferrer" className={buttonClasses('outline', 'lg')}>
             <MessageCircle size={18} /> Pedir orçamento
           </a>
         </div>

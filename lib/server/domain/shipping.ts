@@ -66,13 +66,20 @@ export async function quotePackage(
 }
 
 /** Rota pública: cotação pelo slug do pacote. */
-export async function quoteBySlug(db: Db, slug: string, postalCode: string, quoter: ShippingQuoter = getShippingQuoter(), variantId?: string | null) {
+export async function quoteBySlug(
+  db: Db,
+  slug: string,
+  postalCode: string,
+  quoter: ShippingQuoter = getShippingQuoter(),
+  variantId?: string | null,
+  quantity?: number | null,
+) {
   const [pkg] = await db
     .select()
     .from(t.packages)
     .where(and(eq(t.packages.slug, slug), eq(t.packages.active, true)))
   if (!pkg) throw new ServiceError('NOT_FOUND', 'Este pacote não está mais disponível.')
-  const { priceCents } = priceFor(pkg, variantId)
+  const { priceCents } = priceFor(pkg, variantId, quantity)
   return { options: await quotePackage(db, pkg, postalCode, quoter, priceCents) }
 }
 

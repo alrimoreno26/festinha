@@ -57,6 +57,13 @@
       "when": 1792285633056,
       "tag": "0007_business_line",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792286888014,
+      "tag": "0008_sheet_pricing",
+      "breakpoints": true
     }
   ]
 }

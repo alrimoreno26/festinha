@@ -48,6 +48,7 @@ async function lookupCep(cep: string): Promise<Partial<ShippingAddress> | null> 
 export function ShippingSection({
   packageSlug,
   variantId,
+  quantity,
   shippable,
   value,
   onChange,
@@ -55,6 +56,7 @@ export function ShippingSection({
 }: {
   packageSlug: string
   variantId?: string | null
+  quantity?: number | null
   shippable: boolean
   value: DeliveryState
   onChange: (next: DeliveryState | ((prev: DeliveryState) => DeliveryState)) => void
@@ -69,7 +71,7 @@ export function ShippingSection({
 
   // CEP completo: busca endereço e frete (uma vez por CEP).
   useEffect(() => {
-    const quoteKey = `${cep}:${variantId ?? ''}`
+    const quoteKey = `${cep}:${variantId ?? ''}:${quantity ?? ''}`
     if (value.method !== 'shipping' || cep.length !== 8 || quoteKey === lastCep.current) return
     lastCep.current = quoteKey
     let cancelled = false
@@ -92,7 +94,7 @@ export function ShippingSection({
       }))
     })
     shippingService
-      .quote(packageSlug, cep, variantId)
+      .quote(packageSlug, cep, variantId, quantity)
       .then(({ options }) => {
         if (cancelled) return
         // Já deixa escolhida a opção mais barata.
@@ -109,7 +111,7 @@ export function ShippingSection({
     }
     // onChange é estável (setState do pai).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cep, value.method, packageSlug, variantId])
+  }, [cep, value.method, packageSlug, variantId, quantity])
 
   const choices = [
     { value: 'pickup' as const, icon: Store, title: 'Retirar no local', desc: 'Grátis. Horário combinado pelo WhatsApp.' },

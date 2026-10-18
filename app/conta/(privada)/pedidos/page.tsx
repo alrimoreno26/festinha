@@ -16,6 +16,7 @@ import {
   useToast,
 } from '@/components/ui'
 import { addressLines, trackingUrl } from '@/lib/address'
+import { variantText } from '@/lib/labels'
 import { triggerDownload } from '@/lib/download'
 import { formatBRL, formatBytes, formatDate } from '@/lib/format'
 import { accountService, errorMessage, qk } from '@/lib/services'
@@ -75,7 +76,7 @@ function OrderCard({ order: o }: { order: MyOrder }) {
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold text-gray-900">
               {o.packageTitle}
-              {o.variant && <span className="font-normal text-gray-500"> · {o.variant.label}</span>}
+              {o.variant && <span className="font-normal text-gray-500"> · {variantText(o.variant)}</span>}
             </p>
             {o.packageKind !== 'digital' && <KindBadge kind={o.packageKind} />}
           </div>

@@ -40,6 +40,7 @@ export function toPackage(p: Row<typeof t.packages>, fileIds: string[]): Package
     shippingBox: p.shippingBox ?? null,
     line: p.line,
     variants: p.variants ?? [],
+    sheetPricing: p.sheetPricing ?? null,
     fileIds,
     createdAt: iso(p.createdAt),
     updatedAt: iso(p.updatedAt),

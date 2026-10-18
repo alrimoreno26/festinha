@@ -73,8 +73,8 @@ export function createSeed(): SeedData {
     f('fil_gen2', 'extras/moldes-basicos.pdf', 1_300_000, PDF, 100),
   ]
 
-  type PackageSeed = Omit<Package, 'createdAt' | 'updatedAt' | 'kind' | 'items' | 'customizationLevel' | 'shippingBox' | 'line' | 'variants'> &
-    Partial<Pick<Package, 'kind' | 'items' | 'customizationLevel' | 'shippingBox' | 'line' | 'variants'>>
+  type PackageSeed = Omit<Package, 'createdAt' | 'updatedAt' | 'kind' | 'items' | 'customizationLevel' | 'shippingBox' | 'line' | 'variants' | 'sheetPricing'> &
+    Partial<Pick<Package, 'kind' | 'items' | 'customizationLevel' | 'shippingBox' | 'line' | 'variants' | 'sheetPricing'>>
   const p = (data: PackageSeed, days: number): Package => ({
     kind: 'digital',
     items: [],
@@ -82,6 +82,7 @@ export function createSeed(): SeedData {
     shippingBox: null,
     line: 'festas',
     variants: [],
+    sheetPricing: null,
     ...data,
     createdAt: ago(days),
     updatedAt: ago(Math.max(0, days - 5)),
